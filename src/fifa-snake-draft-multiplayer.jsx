@@ -1261,6 +1261,84 @@ function DraftApp({ mp }){
   ];
   const allGames  = espnData.games;
 
+  // Generate ALL World Cup games — group stage from team data + knockout TBDs
+  const fullSchedule = useMemo(()=>{
+    const schedule = [];
+    // Group stage: 6 games per group (all pairings of 4 teams), 12 groups = 72 games
+    const groups = {};
+    for(const t of ALL_TEAMS){ if(!groups[t.wcGroup]) groups[t.wcGroup]=[]; groups[t.wcGroup].push(t); }
+    const gsBase = new Date("2026-06-11T18:00:00Z");
+    let gIdx = 0;
+    const sortedGrps = Object.keys(groups).sort();
+    for(const g of sortedGrps){
+      const teams = groups[g];
+      for(let i=0;i<teams.length;i++){
+        for(let j=i+1;j<teams.length;j++){
+          const dayOffset = Math.floor(gIdx/4); // ~4 games per day
+          const hourSlot = (gIdx%4)*3; // 3 hours apart
+          const gDate = new Date(gsBase.getTime()+(dayOffset*86400000)+(hourSlot*3600000));
+          schedule.push({home:teams[i].name,away:teams[j].name,hScore:0,aScore:0,status:"pre",completed:false,clock:"",roundLabel:"Group Stage",gameDate:gDate.toISOString(),gameName:`Group ${g}: ${teams[i].name} vs ${teams[j].name}`});
+          gIdx++;
+        }
+      }
+    }
+    // Round of 32: 16 games
+    const r32Base = new Date("2026-07-01T16:00:00Z");
+    for(let i=0;i<16;i++){
+      const d = new Date(r32Base.getTime()+Math.floor(i/4)*86400000+(i%4)*3*3600000);
+      schedule.push({home:"TBD",away:"TBD",hScore:0,aScore:0,status:"pre",completed:false,clock:"",roundLabel:"Round of 32",gameDate:d.toISOString(),gameName:`Round of 32 — Match ${i+1}`});
+    }
+    // Round of 16: 8 games
+    const r16Base = new Date("2026-07-05T16:00:00Z");
+    for(let i=0;i<8;i++){
+      const d = new Date(r16Base.getTime()+Math.floor(i/4)*86400000+(i%4)*3*3600000);
+      schedule.push({home:"TBD",away:"TBD",hScore:0,aScore:0,status:"pre",completed:false,clock:"",roundLabel:"Round of 16",gameDate:d.toISOString(),gameName:`Round of 16 — Match ${i+1}`});
+    }
+    // Quarter-finals: 4 games
+    const qfBase = new Date("2026-07-09T18:00:00Z");
+    for(let i=0;i<4;i++){
+      const d = new Date(qfBase.getTime()+Math.floor(i/2)*86400000+(i%2)*4*3600000);
+      schedule.push({home:"TBD",away:"TBD",hScore:0,aScore:0,status:"pre",completed:false,clock:"",roundLabel:"Quarter-Finals",gameDate:d.toISOString(),gameName:`Quarter-Final ${i+1}`});
+    }
+    // Semi-finals: 2 games
+    schedule.push({home:"TBD",away:"TBD",hScore:0,aScore:0,status:"pre",completed:false,clock:"",roundLabel:"Semi-Finals",gameDate:"2026-07-13T20:00:00Z",gameName:"Semi-Final 1"});
+    schedule.push({home:"TBD",away:"TBD",hScore:0,aScore:0,status:"pre",completed:false,clock:"",roundLabel:"Semi-Finals",gameDate:"2026-07-14T20:00:00Z",gameName:"Semi-Final 2"});
+    // 3rd Place
+    schedule.push({home:"TBD",away:"TBD",hScore:0,aScore:0,status:"pre",completed:false,clock:"",roundLabel:"3rd Place",gameDate:"2026-07-18T16:00:00Z",gameName:"3rd Place Match"});
+    // Final
+    schedule.push({home:"TBD",away:"TBD",hScore:0,aScore:0,status:"pre",completed:false,clock:"",roundLabel:"Final",gameDate:"2026-07-19T20:00:00Z",gameName:"FIFA World Cup 2026 Final"});
+    return schedule;
+  },[]);
+
+  // Merge ESPN live data with full schedule: ESPN overrides matching static games
+  const mergedGames = useMemo(()=>{
+    if(allGames.length===0) return fullSchedule;
+    const used = new Set();
+    const merged = [];
+    // First add all ESPN games (they have real data)
+    for(const eg of allGames){
+      merged.push(eg);
+      // Mark matching static games as used
+      for(let i=0;i<fullSchedule.length;i++){
+        if(used.has(i)) continue;
+        const sg = fullSchedule[i];
+        const eHome = (eg.home||"").toLowerCase(), eAway = (eg.away||"").toLowerCase();
+        const sHome = sg.home.toLowerCase(), sAway = sg.away.toLowerCase();
+        if((eHome.includes(sHome)||sHome.includes(eHome)) && (eAway.includes(sAway)||sAway.includes(eAway))){
+          used.add(i); break;
+        }
+        if((eHome.includes(sAway)||sAway.includes(eHome)) && (eAway.includes(sHome)||sHome.includes(eAway))){
+          used.add(i); break;
+        }
+      }
+    }
+    // Then add unmatched static games (upcoming/TBD that ESPN doesn't have yet)
+    for(let i=0;i<fullSchedule.length;i++){
+      if(!used.has(i)) merged.push(fullSchedule[i]);
+    }
+    return merged;
+  },[allGames, fullSchedule]);
+
   // Helper: find team object from a display name (ESPN names may differ from ours)
   function findTeamByName(displayName){
     if(!displayName) return null;
@@ -1420,7 +1498,7 @@ function DraftApp({ mp }){
           // Group ALL games by round
           const roundOrder = ["Group Stage","Round of 32","Round of 16","Quarter-Finals","Semi-Finals","3rd Place","Final"];
           const grouped = {};
-          for(const g of allGames){
+          for(const g of mergedGames){
             const rnd = g.roundLabel || "Group Stage";
             if(!grouped[rnd]) grouped[rnd] = [];
             grouped[rnd].push(g);
@@ -1475,7 +1553,7 @@ function DraftApp({ mp }){
 
           return (
             <div style={{maxWidth:720,margin:"0 auto",padding:"18px 14px"}}>
-              {allGames.length===0 && !espnData.loading && (
+              {mergedGames.length===0 && !espnData.loading && (
                 <div className="card" style={{padding:"20px 16px",textAlign:"center"}}>
                   <div style={{fontSize:13,color:T.textSub,lineHeight:1.6}}>Match data will appear here once the FIFA World Cup 2026 begins. Auto-refreshes every 60s.</div>
                 </div>
