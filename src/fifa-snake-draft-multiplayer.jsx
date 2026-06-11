@@ -209,7 +209,8 @@ function useESPN(){
         else if(rl.includes("third") || rl.includes("3rd")) roundLabel = "3rd Place";
         games.push({home, away, hScore:hS, aScore:aS, status:st, completed:done, clock, roundLabel, gameDate, gameName});
         if(st === "in") live.push({home, away, hScore:hS, aScore:aS, clock, roundLabel, gameDate});
-        if(!done) continue;
+        // Process both completed AND live games for standings (live scores treated as current result)
+        if(!done && st !== "in") continue;
         let rk = null;
         if(rl.includes("group"))   rk = "group";
         else if(rl.includes("32")) rk = "r32";
