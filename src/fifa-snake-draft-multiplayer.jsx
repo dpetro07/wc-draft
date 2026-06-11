@@ -1431,7 +1431,8 @@ function DraftApp({ mp }){
           function GameCard({g}){
             const homeTeam = findTeamByName(g.home);
             const awayTeam = findTeamByName(g.away);
-            const hO = ownerOf(g.home), aO = ownerOf(g.away);
+            const hO = homeTeam ? ownerOf(homeTeam.name) : null;
+            const aO = awayTeam ? ownerOf(awayTeam.name) : null;
             const isLive = g.status==="in";
             const fin = g.completed;
             const hW = g.hScore > g.aScore;
