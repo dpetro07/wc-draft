@@ -1553,6 +1553,20 @@ function DraftApp({ mp }){
 
           return (
             <div style={{maxWidth:720,margin:"0 auto",padding:"16px 14px 40px"}}>
+              {/* Column headers — sticky at top */}
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"6px 12px 8px",marginBottom:12,position:"sticky",top:0,zIndex:2,background:T.cream}}>
+                <div style={{width:32,flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0,fontSize:8,fontWeight:700,color:T.textSub,letterSpacing:1,textTransform:"uppercase"}}>Team</div>
+                <div style={{display:"flex",gap:3,flexShrink:0}}>
+                  {["M1","M2","M3"].map(l=><div key={l} style={{width:24,textAlign:"center",fontSize:7.5,fontWeight:700,color:T.textSub,letterSpacing:0.5}}>{l}</div>)}
+                </div>
+                <div style={{fontSize:7.5,fontWeight:700,color:T.textSub,flexShrink:0,width:38,textAlign:"center",letterSpacing:0.5}}>W-D-L</div>
+                <div style={{fontSize:7.5,fontWeight:700,color:T.textSub,flexShrink:0,width:28,textAlign:"center",letterSpacing:0.5}}>GRP</div>
+                <div style={{display:"flex",gap:3,flexShrink:0}}>
+                  {["R32","R16","QF","SF","F"].map(l=><div key={l} style={{width:24,textAlign:"center",fontSize:7.5,fontWeight:700,color:T.textSub,letterSpacing:0.5}}>{l}</div>)}
+                </div>
+                <div style={{fontSize:7.5,fontWeight:700,color:T.textSub,flexShrink:0,width:32,textAlign:"center",letterSpacing:0.5}}>TOT</div>
+              </div>
               {sortedGroupKeys.map(groupKey=>(
                 <div key={groupKey} style={{marginBottom:24}}>
                   {/* Group header */}
