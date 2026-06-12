@@ -1353,7 +1353,7 @@ function DraftApp({ mp }){
                       <div key={s.pi} style={{flex:1,maxWidth:64,minWidth:0,textAlign:"center"}}>
                         <div style={{fontSize:8,fontWeight:700,color:PLAYER_COLORS[s.pi%8],overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</div>
                         <div style={{fontSize:7,color:T.textSub,fontWeight:600}}>{rank===0?"1st":rank===1?"2nd":rank===2?"3rd":(rank+1)+"th"}</div>
-                        <div style={{marginTop:2}}><Icon id="trophy" size={12} color={rank===0?T.olive:rank===1?T.navyLt:T.textSub+"55"}/></div>
+                        {rank<2 && <div style={{marginTop:2,fontSize:12}}>{rank===0?"🥇":"🥈"}</div>}
                       </div>
                     ))}
                   </div>
@@ -1366,7 +1366,7 @@ function DraftApp({ mp }){
               {scores.map((s,rank)=>(
                 <div key={s.pi}>
                   <div className="row" style={{display:"grid",gridTemplateColumns:"38px 1fr 54px 60px",padding:"11px 14px",borderBottom:"1px solid "+T.navy+"14",cursor:"pointer",transition:"background 0.15s"}} onClick={()=>setExpanded(expanded===s.pi?null:s.pi)}>
-                    <div style={{display:"flex",alignItems:"center",fontSize:rank<3?17:12,fontWeight:700,color:rank<3?mColors[rank]:T.textSub}}>{rank<3?medals[rank]:rank+1}</div>
+                    <div style={{display:"flex",alignItems:"center",fontSize:rank<2?17:12,fontWeight:700,color:rank<2?mColors[rank]:T.textSub}}>{rank<2?medals[rank]:rank+1}</div>
                     <div style={{display:"flex",alignItems:"center",gap:9}}>
                       <Avatar idx={s.pi} size={27}/>
                       <div>
