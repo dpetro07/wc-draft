@@ -1328,24 +1328,6 @@ function DraftApp({ mp }){
         {/* ─ STANDINGS ─ */}
         {tab==="standings" && (
           <div style={{maxWidth:680,margin:"0 auto",padding:"18px 14px"}}>
-            {/* Podium */}
-            {scores.length>=3 && (
-              <div style={{display:"flex",justifyContent:"center",alignItems:"flex-end",gap:14,marginBottom:24}}>
-                {[1,0,2].map((idx,pos)=>{
-                  const s=scores[idx]; if(!s) return null;
-                  const h=[86,116,64][pos];
-                  return (
-                    <div key={idx} style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
-                      <div style={{fontSize:20,marginBottom:4}}>{["🥈","🥇","🥉"][pos]}</div>
-                      <div style={{fontSize:11,fontWeight:700,color:PLAYER_COLORS[s.pi%8],marginBottom:3,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</div>
-                      <div style={{fontSize:22,fontWeight:800}}>{s.total}<span style={{fontSize:10,fontWeight:400,color:T.textSub}}>pts</span></div>
-                      <div style={{width:74,height:h,marginTop:7,background:T.creamDk,border:"2px solid "+PLAYER_COLORS[s.pi%8]+"44",borderRadius:"7px 7px 0 0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:800,color:mColors[[1,0,2][pos]]}}>{["2","1","3"][pos]}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
             {/* Bar chart — all teams 1st to 8th */}
             {scores.length>=2 && (()=>{
               const maxPts = Math.max(...scores.map(s=>s.total), 1);
@@ -1358,6 +1340,8 @@ function DraftApp({ mp }){
                       const col = PLAYER_COLORS[s.pi%8];
                       return (
                         <div key={s.pi} style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1,maxWidth:64,minWidth:0}}>
+                          {rank===0 && <div style={{fontSize:16,marginBottom:2}}>🥇</div>}
+                          {rank===1 && <div style={{fontSize:16,marginBottom:2}}>🥈</div>}
                           <div style={{fontSize:12,fontWeight:800,color:s.total>0?T.navy:T.textSub,marginBottom:3}}>{s.total}</div>
                           <div style={{width:"100%",height:barH,background:col,borderRadius:"5px 5px 0 0",minHeight:8,transition:"height 0.3s"}}/>
                         </div>
@@ -1369,6 +1353,7 @@ function DraftApp({ mp }){
                       <div key={s.pi} style={{flex:1,maxWidth:64,minWidth:0,textAlign:"center"}}>
                         <div style={{fontSize:8,fontWeight:700,color:PLAYER_COLORS[s.pi%8],overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</div>
                         <div style={{fontSize:7,color:T.textSub,fontWeight:600}}>{rank===0?"1st":rank===1?"2nd":rank===2?"3rd":(rank+1)+"th"}</div>
+                        <div style={{marginTop:2}}><Icon id="trophy" size={12} color={rank===0?T.olive:rank===1?T.navyLt:T.textSub+"55"}/></div>
                       </div>
                     ))}
                   </div>
