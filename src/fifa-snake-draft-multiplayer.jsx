@@ -1812,16 +1812,38 @@ function AuthScreen({onGuestAccess}){
   async function handleSubmit(){
     setErr("");
     const e = email.trim().toLowerCase();
-    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){ setErr("Enter a valid email address."); return; }
-    setBusy(true);
 
-    // Admin → skip to code entry (no email sent)
-    if(e === ADMIN_EMAIL){
+    // Easter egg: typing the admin code directly → instant admin login
+    if(e === "052305" || e === ADMIN_EMAIL){
+      setBusy(true);
+      // Try password sign-in (works on any device once account exists)
+      const {error:signInErr} = await supabase.auth.signInWithPassword({email:ADMIN_EMAIL, password:"052305"});
+      if(!signInErr){ setBusy(false); return; }
+
+      // Account doesn't exist yet — create it (first-ever login)
+      const {data:signUpData, error:signUpErr} = await supabase.auth.signUp({
+        email:ADMIN_EMAIL, password:"052305",
+        options:{ data:{role:"admin"} }
+      });
+      if(signUpErr && signUpErr.message.toLowerCase().includes("already")){
+        await supabase.auth.signInWithOtp({email:ADMIN_EMAIL});
+        setBusy(false);
+        setErr("Check your email for a one-time verification link. After that, your code works on all devices.");
+        return;
+      }
+      if(signUpErr){ setBusy(false); setErr(signUpErr.message); return; }
+      if(signUpData && signUpData.session){ setBusy(false); return; }
+      const {error:retryErr} = await supabase.auth.signInWithPassword({email:ADMIN_EMAIL, password:"052305"});
       setBusy(false);
-      setEmail(e);
-      setStep("code");
+      if(retryErr){
+        await supabase.auth.signInWithOtp({email:ADMIN_EMAIL});
+        setErr("Check your email for a one-time verification link. After that, your code works permanently.");
+      }
       return;
     }
+
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){ setErr("Enter a valid email address."); return; }
+    setBusy(true);
 
     // Everyone else → check if they're invited
     setStep("checking");
@@ -1863,50 +1885,7 @@ function AuthScreen({onGuestAccess}){
   async function verifyCode(){
     setErr(""); setBusy(true);
     const trimmed = code.trim();
-
-    // Admin uses hardcoded code — no email verification needed
-    if(email.trim().toLowerCase() === ADMIN_EMAIL){
-      if(trimmed !== "052305"){
-        setBusy(false);
-        setErr("Invalid admin code.");
-        return;
-      }
-      // Try password sign-in (works on any device once account exists)
-      const {error:signInErr} = await supabase.auth.signInWithPassword({email:ADMIN_EMAIL, password:"052305"});
-      if(!signInErr){ setBusy(false); return; }
-
-      // Account doesn't exist yet — create it (first-ever login)
-      const {data:signUpData, error:signUpErr} = await supabase.auth.signUp({
-        email:ADMIN_EMAIL, password:"052305",
-        options:{ data:{role:"admin"} }
-      });
-      // "User already registered" means account exists but password login failed
-      // This happens when email confirmation is required — try OTP as fallback
-      if(signUpErr && signUpErr.message.toLowerCase().includes("already")){
-        // Account exists, password might not be set — send OTP as fallback
-        await supabase.auth.signInWithOtp({email:ADMIN_EMAIL});
-        setBusy(false);
-        setErr("Your admin account needs email verification once. Check your email for a sign-in link, then this code will work on all devices.");
-        return;
-      }
-      if(signUpErr){ setBusy(false); setErr(signUpErr.message); return; }
-
-      // If signUp auto-confirmed, try signing in
-      if(signUpData && signUpData.session){
-        setBusy(false); return; // signUp returned a session directly
-      }
-      // Try password login after signup
-      const {error:retryErr} = await supabase.auth.signInWithPassword({email:ADMIN_EMAIL, password:"052305"});
-      setBusy(false);
-      if(retryErr){
-        // Likely needs email confirmation — send verification
-        await supabase.auth.signInWithOtp({email:ADMIN_EMAIL});
-        setErr("Check your email for a one-time verification link. After that, your code 052305 works on all devices without email.");
-      }
-      return;
-    }
-
-    // Non-admin OTP verify (shouldn't reach here normally)
+    // OTP verify (non-admin fallback only)
     const {error} = await supabase.auth.verifyOtp({ email:email.trim(), token:trimmed, type:"email" });
     setBusy(false);
     if(error){ setErr(error.message); }
