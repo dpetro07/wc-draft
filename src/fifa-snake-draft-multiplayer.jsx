@@ -1473,6 +1473,12 @@ function DraftApp({ mp }){
             );
           }
 
+          // Find today's date string to scroll to
+          const todayStr = new Date().toLocaleDateString("en-US",{timeZone:"America/New_York",weekday:"long",month:"long",day:"numeric",year:"numeric"});
+          const todayRef = (el) => {
+            if(el) setTimeout(()=>el.scrollIntoView({behavior:"smooth",block:"start"}), 100);
+          };
+
           return (
             <div style={{maxWidth:720,margin:"0 auto",padding:"18px 14px"}}>
               {allGames.length===0 && !espnData.loading && (
@@ -1485,11 +1491,14 @@ function DraftApp({ mp }){
                 const gms = dayGroups[day];
                 const hasLive = gms.some(g=>g.status==="in");
                 const allDone = gms.every(g=>g.completed);
+                const isToday = day === todayStr;
                 return (
-                  <div key={day} style={{marginBottom:24}}>
+                  <div key={day} ref={isToday ? todayRef : null} style={{marginBottom:24}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
                       {hasLive && <div style={{width:8,height:8,borderRadius:"50%",background:T.danger,flexShrink:0}}/>}
-                      <div style={{fontSize:12,fontWeight:700,color:hasLive?T.danger:T.navy}}>{day}</div>
+                      <div style={{fontSize:12,fontWeight:700,color:hasLive?T.danger:isToday?T.olive:T.navy}}>
+                        {day}{isToday ? " — Today" : ""}
+                      </div>
                       <div style={{flex:1,height:1,background:T.navy+"12"}}/>
                       <span style={{fontSize:10,color:allDone?T.olive:T.textSub,fontWeight:allDone?600:400}}>{gms.length} match{gms.length!==1?"es":""}{allDone?" ✓":""}</span>
                     </div>
