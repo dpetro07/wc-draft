@@ -1346,6 +1346,36 @@ function DraftApp({ mp }){
               </div>
             )}
 
+            {/* Bar chart — all teams 1st to 8th */}
+            {scores.length>=2 && (()=>{
+              const maxPts = Math.max(...scores.map(s=>s.total), 1);
+              return (
+                <div className="card" style={{padding:"16px 12px 12px",marginBottom:14}}>
+                  <div style={{fontSize:9.5,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:T.textSub,marginBottom:14,textAlign:"center"}}>Leaderboard</div>
+                  <div style={{display:"flex",alignItems:"flex-end",justifyContent:"center",gap:6,height:140}}>
+                    {scores.map((s,rank)=>{
+                      const barH = Math.max(8, Math.round((s.total/maxPts)*120));
+                      const col = PLAYER_COLORS[s.pi%8];
+                      return (
+                        <div key={s.pi} style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1,maxWidth:64,minWidth:0}}>
+                          <div style={{fontSize:12,fontWeight:800,color:s.total>0?T.navy:T.textSub,marginBottom:3}}>{s.total}</div>
+                          <div style={{width:"100%",height:barH,background:col,borderRadius:"5px 5px 0 0",minHeight:8,transition:"height 0.3s"}}/>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:6}}>
+                    {scores.map((s,rank)=>(
+                      <div key={s.pi} style={{flex:1,maxWidth:64,minWidth:0,textAlign:"center"}}>
+                        <div style={{fontSize:8,fontWeight:700,color:PLAYER_COLORS[s.pi%8],overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</div>
+                        <div style={{fontSize:7,color:T.textSub,fontWeight:600}}>{rank===0?"1st":rank===1?"2nd":rank===2?"3rd":(rank+1)+"th"}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Table */}
             <div className="card" style={{overflow:"hidden",marginBottom:14}}>
               {scores.map((s,rank)=>(
