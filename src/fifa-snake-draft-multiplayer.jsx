@@ -185,6 +185,25 @@ function useESPN(){
       const res = await fetch(ESPN_URL + "?limit=200&dates=20260611-20260628");
       const json = await res.json();
       const games=[], live=[], tr={};
+      // Normalize ESPN display names → our internal ALL_TEAMS names
+      function normalize(espnName){
+        if(!espnName) return espnName;
+        const dn = espnName.toLowerCase().trim();
+        const match = ALL_TEAMS.find(t=>
+          t.name.toLowerCase()===dn ||
+          dn.includes(t.name.toLowerCase()) ||
+          t.name.toLowerCase().includes(dn) ||
+          (t.name==="Korea Republic" && (dn.includes("korea")||dn.includes("south korea"))) ||
+          (t.name==="Turkiye" && (dn.includes("turkey")||dn.includes("türkiye"))) ||
+          (t.name==="Cote d'Ivoire" && (dn.includes("ivory")||dn.includes("côte"))) ||
+          (t.name==="Czechia" && dn.includes("czech")) ||
+          (t.name==="Bosnia" && dn.includes("bosnia")) ||
+          (t.name==="DR Congo" && dn.includes("congo")) ||
+          (t.name==="United States" && (dn.includes("usa")||dn.includes("united states"))) ||
+          (t.name==="Curacao" && (dn.includes("curaçao")||dn.includes("curacao")))
+        );
+        return match ? match.name : espnName;
+      }
       for(const ev of (json.events || [])){
         const comp = ev.competitions && ev.competitions[0];
         if(!comp) continue;
@@ -220,17 +239,18 @@ function useESPN(){
         else if(rl.includes("semi"))    rk = "r4";
         else if(rl.includes("final") && !rl.includes("semi") && !rl.includes("quarter")) rk = "final";
         if(!rk) continue;
-        if(!tr[home]) tr[home] = {};
-        if(!tr[away]) tr[away] = {};
+        const nHome = normalize(home), nAway = normalize(away);
+        if(!tr[nHome]) tr[nHome] = {};
+        if(!tr[nAway]) tr[nAway] = {};
         if(rk === "group"){
-          const hg = Object.keys(tr[home]).filter(k=>k[0]==="g").length + 1;
-          const ag = Object.keys(tr[away]).filter(k=>k[0]==="g").length + 1;
-          if(hS > aS){ tr[home]["g"+Math.min(hg,3)]="W"; tr[away]["g"+Math.min(ag,3)]="L"; }
-          else if(aS > hS){ tr[away]["g"+Math.min(ag,3)]="W"; tr[home]["g"+Math.min(hg,3)]="L"; }
-          else { tr[home]["g"+Math.min(hg,3)]="D"; tr[away]["g"+Math.min(ag,3)]="D"; }
+          const hg = Object.keys(tr[nHome]).filter(k=>k[0]==="g").length + 1;
+          const ag = Object.keys(tr[nAway]).filter(k=>k[0]==="g").length + 1;
+          if(hS > aS){ tr[nHome]["g"+Math.min(hg,3)]="W"; tr[nAway]["g"+Math.min(ag,3)]="L"; }
+          else if(aS > hS){ tr[nAway]["g"+Math.min(ag,3)]="W"; tr[nHome]["g"+Math.min(hg,3)]="L"; }
+          else { tr[nHome]["g"+Math.min(hg,3)]="D"; tr[nAway]["g"+Math.min(ag,3)]="D"; }
         } else {
-          if(hS > aS){ tr[home][rk]="W"; tr[away][rk]="L"; }
-          else if(aS > hS){ tr[away][rk]="W"; tr[home][rk]="L"; }
+          if(hS > aS){ tr[nHome][rk]="W"; tr[nAway][rk]="L"; }
+          else if(aS > hS){ tr[nAway][rk]="W"; tr[nHome][rk]="L"; }
         }
       }
       setD({games, live, teamResults:tr, lastFetch:new Date(), loading:false, source:games.length?"espn":"static"});
