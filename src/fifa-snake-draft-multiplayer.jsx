@@ -1553,69 +1553,66 @@ function DraftApp({ mp }){
 
           return (
             <div style={{maxWidth:720,margin:"0 auto",padding:"16px 14px 40px"}}>
-              {/* Column headers — sticky at top */}
-              <div style={{display:"flex",alignItems:"center",gap:10,padding:"6px 12px 8px",marginBottom:12,position:"sticky",top:0,zIndex:2,background:T.cream}}>
-                <div style={{width:32,flexShrink:0}}/>
-                <div style={{flex:1,minWidth:0,fontSize:8,fontWeight:700,color:T.textSub,letterSpacing:1,textTransform:"uppercase"}}>Team</div>
-                <div style={{display:"flex",gap:3,flexShrink:0}}>
-                  {["M1","M2","M3"].map(l=><div key={l} style={{width:24,textAlign:"center",fontSize:7.5,fontWeight:700,color:T.textSub,letterSpacing:0.5}}>{l}</div>)}
-                </div>
-                <div style={{fontSize:7.5,fontWeight:700,color:T.textSub,flexShrink:0,width:38,textAlign:"center",letterSpacing:0.5}}>W-D-L</div>
-                <div style={{fontSize:7.5,fontWeight:700,color:T.textSub,flexShrink:0,width:28,textAlign:"center",letterSpacing:0.5}}>GRP</div>
-                <div style={{display:"flex",gap:3,flexShrink:0}}>
-                  {["R32","R16","QF","SF","F"].map(l=><div key={l} style={{width:24,textAlign:"center",fontSize:7.5,fontWeight:700,color:T.textSub,letterSpacing:0.5}}>{l}</div>)}
-                </div>
-                <div style={{fontSize:7.5,fontWeight:700,color:T.textSub,flexShrink:0,width:32,textAlign:"center",letterSpacing:0.5}}>TOT</div>
-              </div>
-              {sortedGroupKeys.map(groupKey=>(
-                <div key={groupKey} style={{marginBottom:24}}>
-                  {/* Group header */}
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                    <div style={{background:T.navy,color:T.cream,borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700}}>Group {groupKey}</div>
-                    <div style={{flex:1,height:1,background:T.navy+"12"}}/>
+              {/* Scrollable table wrapper */}
+              <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+                <div style={{minWidth:520}}>
+                  {/* Column headers — sticky */}
+                  <div style={{display:"grid",gridTemplateColumns:"minmax(130px,1fr) 24px 24px 24px 42px 30px 24px 24px 24px 24px 24px 36px",gap:3,alignItems:"center",padding:"6px 12px 8px",marginBottom:8,position:"sticky",top:0,zIndex:2,background:T.cream}}>
+                    <div style={{fontSize:8,fontWeight:700,color:T.textSub,letterSpacing:1,textTransform:"uppercase"}}>Team</div>
+                    {["M1","M2","M3"].map(l=><div key={l} style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>{l}</div>)}
+                    <div style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>W-D-L</div>
+                    <div style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>GRP</div>
+                    {["R32","R16","QF","SF","F"].map(l=><div key={l} style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>{l}</div>)}
+                    <div style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>TOT</div>
                   </div>
-                  {/* Teams in this group */}
-                  {groups[groupKey].map((team,ri)=>{
-                    const res = teamResults[team.name]||{};
-                    const o = ownerOf(team.name);
-                    const tot = totalPts(res);
-                    const gW = [1,2,3].filter(g=>res["g"+g]==="W").length;
-                    const gD = [1,2,3].filter(g=>res["g"+g]==="D").length;
-                    const gL = [1,2,3].filter(g=>res["g"+g]==="L").length;
-                    const gPts = gW*3+gD;
-                    const drafterColor = o ? PLAYER_COLORS[o.idx%8] : "transparent";
-                    return (
-                      <div key={team.name} className="card" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",marginBottom:6,borderLeft:"3px solid "+drafterColor}}>
-                        <MiniCard team={team} size={32}/>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600}}>{team.name}</div>
-                          <div style={{fontSize:9,color:o?drafterColor:T.textSub,fontWeight:600}}>{o?o.name:"Undrafted"}</div>
-                        </div>
-                        {/* Group results: M1 M2 M3 */}
-                        <div style={{display:"flex",gap:3,flexShrink:0}}>
-                          {[1,2,3].map(g=><OutcomeBadge key={g} val={res["g"+g]}/>)}
-                        </div>
-                        {/* W-D-L record */}
-                        <div style={{fontSize:10,fontWeight:600,color:T.navy,flexShrink:0,width:38,textAlign:"center"}}>
-                          {gW>0||gD>0||gL>0 ? `${gW}-${gD}-${gL}` : <span style={{color:T.textSub,opacity:0.4}}>—</span>}
-                        </div>
-                        {/* Group pts */}
-                        <div style={{flexShrink:0,width:28,textAlign:"center"}}>
-                          <PtsCell pts={gPts} highlight={gPts>0}/>
-                        </div>
-                        {/* Knockout badges */}
-                        <div style={{display:"flex",gap:3,flexShrink:0}}>
-                          {["r32","r16","r8","r4","final"].map(k=><OutcomeBadge key={k} val={res[k]}/>)}
-                        </div>
-                        {/* Total */}
-                        <div style={{flexShrink:0,width:32,textAlign:"center"}}>
-                          <span style={{fontSize:14,fontWeight:700,color:tot>0?T.olive:T.textSub}}>{tot>0?tot:"—"}</span>
-                        </div>
+                  {sortedGroupKeys.map(groupKey=>(
+                    <div key={groupKey} style={{marginBottom:20}}>
+                      {/* Group header */}
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,padding:"0 12px"}}>
+                        <div style={{background:T.navy,color:T.cream,borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700}}>Group {groupKey}</div>
+                        <div style={{flex:1,height:1,background:T.navy+"12"}}/>
                       </div>
-                    );
-                  })}
+                      {/* Teams in this group */}
+                      {groups[groupKey].map((team,ri)=>{
+                        const res = teamResults[team.name]||{};
+                        const o = ownerOf(team.name);
+                        const tot = totalPts(res);
+                        const gW = [1,2,3].filter(g=>res["g"+g]==="W").length;
+                        const gD = [1,2,3].filter(g=>res["g"+g]==="D").length;
+                        const gL = [1,2,3].filter(g=>res["g"+g]==="L").length;
+                        const gPts = gW*3+gD;
+                        const drafterColor = o ? PLAYER_COLORS[o.idx%8] : "transparent";
+                        return (
+                          <div key={team.name} className="card" style={{display:"grid",gridTemplateColumns:"minmax(130px,1fr) 24px 24px 24px 42px 30px 24px 24px 24px 24px 24px 36px",gap:3,alignItems:"center",padding:"8px 12px",marginBottom:4,borderLeft:"3px solid "+drafterColor}}>
+                            {/* Team */}
+                            <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0}}>
+                              <MiniCard team={team} size={28}/>
+                              <div style={{minWidth:0,overflow:"hidden"}}>
+                                <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{team.name}</div>
+                                <div style={{fontSize:8,color:o?drafterColor:T.textSub,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o?o.name:"Undrafted"}</div>
+                              </div>
+                            </div>
+                            {/* M1 M2 M3 */}
+                            {[1,2,3].map(g=><div key={g} style={{textAlign:"center"}}><OutcomeBadge val={res["g"+g]}/></div>)}
+                            {/* W-D-L */}
+                            <div style={{fontSize:9,fontWeight:600,color:T.navy,textAlign:"center"}}>
+                              {gW>0||gD>0||gL>0 ? `${gW}-${gD}-${gL}` : <span style={{color:T.textSub,opacity:0.4}}>—</span>}
+                            </div>
+                            {/* Group pts */}
+                            <div style={{textAlign:"center"}}><PtsCell pts={gPts} highlight={gPts>0}/></div>
+                            {/* Knockout R32 R16 QF SF F */}
+                            {["r32","r16","r8","r4","final"].map(k=><div key={k} style={{textAlign:"center"}}><OutcomeBadge val={res[k]}/></div>)}
+                            {/* Total */}
+                            <div style={{textAlign:"center"}}>
+                              <span style={{fontSize:13,fontWeight:700,color:tot>0?T.olive:T.textSub}}>{tot>0?tot:"—"}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           );
         })()}
@@ -1819,11 +1816,9 @@ function AuthScreen({onGuestAccess}){
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){ setErr("Enter a valid email address."); return; }
     setBusy(true);
 
-    // Admin → OTP flow
+    // Admin → skip to code entry (no email sent)
     if(e === ADMIN_EMAIL){
-      const {error} = await supabase.auth.signInWithOtp({ email:e, options:{ shouldCreateUser:true } });
       setBusy(false);
-      if(error){ setErr(error.message); return; }
       setEmail(e);
       setStep("code");
       return;
@@ -1859,20 +1854,46 @@ function AuthScreen({onGuestAccess}){
     if(!existing){
       await supabase.from("room_members").insert({room_id:invite.room_id, user_id:anonUid, seat:invite.seat, team_name:teamName});
     } else if(!existing.user_id || existing.user_id !== anonUid){
-      // Update existing placeholder with real uid
       await supabase.from("room_members").update({user_id:anonUid, team_name:teamName}).eq("id",existing.id);
     }
 
     setBusy(false);
-    // onGuestAccess stores the roomId; onAuthStateChange sets the session
     onGuestAccess(e, invite.room_id);
   }
 
   async function verifyCode(){
     setErr(""); setBusy(true);
-    const {error} = await supabase.auth.verifyOtp({ email:email.trim(), token:code.trim(), type:"email" });
+    const trimmed = code.trim();
+
+    // Admin uses hardcoded code — no email verification needed
+    if(email.trim().toLowerCase() === ADMIN_EMAIL){
+      if(trimmed !== "052305"){
+        setBusy(false);
+        setErr("Invalid admin code.");
+        return;
+      }
+      // Try password sign-in first (returning admin)
+      const {error:signInErr} = await supabase.auth.signInWithPassword({email:ADMIN_EMAIL, password:"052305"});
+      if(!signInErr){ setBusy(false); return; }
+
+      // First time — create the admin account with this password
+      const {error:signUpErr} = await supabase.auth.signUp({
+        email:ADMIN_EMAIL, password:"052305",
+        options:{ data:{role:"admin"} }
+      });
+      if(signUpErr){ setBusy(false); setErr(signUpErr.message); return; }
+
+      // Try signing in again after signup
+      const {error:retryErr} = await supabase.auth.signInWithPassword({email:ADMIN_EMAIL, password:"052305"});
+      setBusy(false);
+      if(retryErr){ setErr("Account created. If email confirmation is required, check your email once — after that this code works permanently."); }
+      return;
+    }
+
+    // Non-admin OTP verify (shouldn't reach here normally)
+    const {error} = await supabase.auth.verifyOtp({ email:email.trim(), token:trimmed, type:"email" });
     setBusy(false);
-    if(error){ setErr(error.message); return; }
+    if(error){ setErr(error.message); }
   }
 
   return (
@@ -1904,18 +1925,14 @@ function AuthScreen({onGuestAccess}){
         {step==="code" && (
           <>
             <div style={{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",color:T.textSub,marginBottom:12}}>Admin sign-in</div>
-            <p style={{fontSize:12,color:T.navy,marginBottom:14,lineHeight:1.6}}>We sent an email to <strong>{email}</strong>. You can either:<br/>
-              <strong style={{color:T.olive}}>① Click the sign-in link</strong> in the email (easiest), or<br/>
-              <strong style={{color:T.olive}}>② Enter the 6-digit code</strong> below if your email shows one.
-            </p>
-            <input className="mp-input" type="text" inputMode="numeric" maxLength={6} placeholder="6-digit code (optional)"
+            <p style={{fontSize:12,color:T.navy,marginBottom:14,lineHeight:1.6}}>Enter your 6-digit admin code to sign in.</p>
+            <input className="mp-input" type="text" inputMode="numeric" maxLength={6} placeholder="000000"
                    value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,""))}
                    onKeyDown={e=>e.key==="Enter"&&verifyCode()}
                    style={{textAlign:"center",fontSize:26,letterSpacing:8,fontWeight:800}}/>
-            <p style={{fontSize:11,color:T.textSub,margin:"10px 0 0",lineHeight:1.5}}>Check your inbox and spam folder. If you clicked the link, this page will update automatically.</p>
             <div style={{display:"flex",gap:8,marginTop:16}}>
               <button className="mp-btn" style={{background:T.creamDk,color:T.navy,flex:1}} onClick={()=>{setStep("email");setCode("");setErr("");}}>Back</button>
-              <button className="mp-btn" style={{background:T.olive,color:T.cream,flex:2}} disabled={busy||code.length<6} onClick={verifyCode}>{busy?"Verifying…":"Verify code"}</button>
+              <button className="mp-btn" style={{background:T.olive,color:T.cream,flex:2}} disabled={busy||code.length<6} onClick={verifyCode}>{busy?"Signing in…":"Sign in"}</button>
             </div>
           </>
         )}
