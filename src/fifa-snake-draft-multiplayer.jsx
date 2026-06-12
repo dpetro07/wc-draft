@@ -181,7 +181,14 @@ function useESPN(){
   });
   const run = useCallback(async () => {
     try {
-      const res = await fetch(ESPN_URL + "?limit=200");
+      // Fetch today's and tomorrow's games
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const fmt = d => d.toISOString().slice(0,10).replace(/-/g,"");
+      const dateRange = fmt(today) + "-" + fmt(tomorrow);
+
+      const res = await fetch(ESPN_URL + "?limit=200&dates=" + dateRange);
       const json = await res.json();
       const games=[], live=[], tr={};
       for(const ev of (json.events || [])){
