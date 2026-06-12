@@ -1553,24 +1553,23 @@ function DraftApp({ mp }){
 
           return (
             <div style={{maxWidth:720,margin:"0 auto",padding:"16px 14px 40px"}}>
-              {/* Scrollable table wrapper */}
               <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
                 <div style={{minWidth:520}}>
-                  {/* Column headers — sticky */}
-                  <div style={{display:"grid",gridTemplateColumns:"minmax(130px,1fr) 24px 24px 24px 42px 30px 24px 24px 24px 24px 24px 36px",gap:3,alignItems:"center",padding:"6px 12px 8px",marginBottom:8,position:"sticky",top:0,zIndex:2,background:T.cream}}>
-                    <div style={{fontSize:8,fontWeight:700,color:T.textSub,letterSpacing:1,textTransform:"uppercase"}}>Team</div>
-                    {["M1","M2","M3"].map(l=><div key={l} style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>{l}</div>)}
-                    <div style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>W-D-L</div>
-                    <div style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>GRP</div>
-                    {["R32","R16","QF","SF","F"].map(l=><div key={l} style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>{l}</div>)}
-                    <div style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>TOT</div>
-                  </div>
                   {sortedGroupKeys.map(groupKey=>(
                     <div key={groupKey} style={{marginBottom:20}}>
                       {/* Group header */}
-                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,padding:"0 12px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,padding:"0 12px"}}>
                         <div style={{background:T.navy,color:T.cream,borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700}}>Group {groupKey}</div>
                         <div style={{flex:1,height:1,background:T.navy+"12"}}/>
+                      </div>
+                      {/* Column headers — repeated per group */}
+                      <div style={{display:"grid",gridTemplateColumns:"minmax(130px,1fr) 24px 24px 24px 42px 30px 24px 24px 24px 24px 24px 36px",gap:3,alignItems:"center",padding:"4px 12px 6px"}}>
+                        <div style={{fontSize:8,fontWeight:700,color:T.textSub,letterSpacing:1,textTransform:"uppercase"}}>Team</div>
+                        {["M1","M2","M3"].map(l=><div key={l} style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>{l}</div>)}
+                        <div style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>W-D-L</div>
+                        <div style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>GRP</div>
+                        {["R32","R16","QF","SF","F"].map(l=><div key={l} style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>{l}</div>)}
+                        <div style={{fontSize:7,fontWeight:700,color:T.textSub,textAlign:"center"}}>TOT</div>
                       </div>
                       {/* Teams in this group */}
                       {groups[groupKey].map((team,ri)=>{
@@ -1872,21 +1871,38 @@ function AuthScreen({onGuestAccess}){
         setErr("Invalid admin code.");
         return;
       }
-      // Try password sign-in first (returning admin)
+      // Try password sign-in (works on any device once account exists)
       const {error:signInErr} = await supabase.auth.signInWithPassword({email:ADMIN_EMAIL, password:"052305"});
       if(!signInErr){ setBusy(false); return; }
 
-      // First time — create the admin account with this password
-      const {error:signUpErr} = await supabase.auth.signUp({
+      // Account doesn't exist yet — create it (first-ever login)
+      const {data:signUpData, error:signUpErr} = await supabase.auth.signUp({
         email:ADMIN_EMAIL, password:"052305",
         options:{ data:{role:"admin"} }
       });
+      // "User already registered" means account exists but password login failed
+      // This happens when email confirmation is required — try OTP as fallback
+      if(signUpErr && signUpErr.message.toLowerCase().includes("already")){
+        // Account exists, password might not be set — send OTP as fallback
+        await supabase.auth.signInWithOtp({email:ADMIN_EMAIL});
+        setBusy(false);
+        setErr("Your admin account needs email verification once. Check your email for a sign-in link, then this code will work on all devices.");
+        return;
+      }
       if(signUpErr){ setBusy(false); setErr(signUpErr.message); return; }
 
-      // Try signing in again after signup
+      // If signUp auto-confirmed, try signing in
+      if(signUpData && signUpData.session){
+        setBusy(false); return; // signUp returned a session directly
+      }
+      // Try password login after signup
       const {error:retryErr} = await supabase.auth.signInWithPassword({email:ADMIN_EMAIL, password:"052305"});
       setBusy(false);
-      if(retryErr){ setErr("Account created. If email confirmation is required, check your email once — after that this code works permanently."); }
+      if(retryErr){
+        // Likely needs email confirmation — send verification
+        await supabase.auth.signInWithOtp({email:ADMIN_EMAIL});
+        setErr("Check your email for a one-time verification link. After that, your code 052305 works on all devices without email.");
+      }
       return;
     }
 
