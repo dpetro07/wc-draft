@@ -1281,13 +1281,6 @@ function DraftApp({ mp }){
     ) || null;
   }
 
-  // Format date to ET timezone
-  function formatET(dateStr){
-    if(!dateStr) return "";
-    try {
-      return new Date(dateStr).toLocaleString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-    } catch(e){ return ""; }
-  }
   const histPicks = histF==="all" ? effPicks : effPicks.filter(p=>p.playerIndex===parseInt(histF));
   const pwSorted  = ALL_TEAMS.slice().sort((a,b)=>b.ovr-a.ovr);
   const pwByPlayer = effNames.map((name,pi)=>{
@@ -1418,17 +1411,22 @@ function DraftApp({ mp }){
         {/* ─ LIVE ─ */}
         {/* ─ LIVE ─ */}
         {tab==="live" && (()=>{
-          // Group ALL games by round
-          const roundOrder = ["Group Stage","Round of 32","Round of 16","Quarter-Finals","Semi-Finals","3rd Place","Final"];
-          const grouped = {};
+          // Group games by day
+          const dayGroups = {};
           for(const g of allGames){
-            const rnd = g.roundLabel || "Group Stage";
-            if(!grouped[rnd]) grouped[rnd] = [];
-            grouped[rnd].push(g);
+            const d = g.gameDate ? new Date(g.gameDate).toLocaleDateString("en-US",{timeZone:"America/New_York",weekday:"long",month:"long",day:"numeric",year:"numeric"}) : "Date TBD";
+            if(!dayGroups[d]) dayGroups[d] = [];
+            dayGroups[d].push(g);
           }
-          for(const rnd in grouped){
-            grouped[rnd].sort((a,b)=>new Date(a.gameDate||0)-new Date(b.gameDate||0));
+          // Sort games within each day by time
+          for(const d in dayGroups){
+            dayGroups[d].sort((a,b)=>new Date(a.gameDate||0)-new Date(b.gameDate||0));
           }
+          // Sort days chronologically
+          const sortedDays = Object.keys(dayGroups).sort((a,b)=>{
+            if(a==="Date TBD") return 1; if(b==="Date TBD") return -1;
+            return new Date(dayGroups[a][0].gameDate||0)-new Date(dayGroups[b][0].gameDate||0);
+          });
 
           function GameCard({g}){
             const homeTeam = findTeamByName(g.home);
@@ -1439,13 +1437,14 @@ function DraftApp({ mp }){
             const fin = g.completed;
             const hW = g.hScore > g.aScore;
             const aW = g.aScore > g.hScore;
-            const etTime = formatET(g.gameDate);
+            const etTime = g.gameDate ? new Date(g.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit",timeZoneName:"short"}) : "";
             return (
               <div className="card" style={{padding:"12px 14px",marginBottom:8,borderColor:isLive?T.danger+"55":""}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                   <span style={{fontSize:10,color:isLive?T.danger:T.textSub,fontWeight:isLive?700:500}}>
                     {isLive ? "● LIVE · "+g.clock : fin ? "Final" : etTime || "TBD"}
                   </span>
+                  {g.roundLabel && <span style={{fontSize:9,color:T.olive,fontWeight:600}}>{g.roundLabel}</span>}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}>
@@ -1482,28 +1481,22 @@ function DraftApp({ mp }){
                 </div>
               )}
               {espnData.loading && <div style={{textAlign:"center",padding:40,color:T.textSub}}>Loading matches…</div>}
-              {roundOrder.map(rnd=>{
-                const gms = grouped[rnd];
-                if(!gms || gms.length===0) return null;
+              {sortedDays.map(day=>{
+                const gms = dayGroups[day];
                 const hasLive = gms.some(g=>g.status==="in");
+                const allDone = gms.every(g=>g.completed);
                 return (
-                  <div key={rnd} style={{marginBottom:24}}>
+                  <div key={day} style={{marginBottom:24}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
                       {hasLive && <div style={{width:8,height:8,borderRadius:"50%",background:T.danger,flexShrink:0}}/>}
-                      <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:hasLive?T.danger:T.navy}}>{rnd}</div>
+                      <div style={{fontSize:12,fontWeight:700,color:hasLive?T.danger:T.navy}}>{day}</div>
                       <div style={{flex:1,height:1,background:T.navy+"12"}}/>
-                      <span style={{fontSize:10,color:T.textSub}}>{gms.length} match{gms.length!==1?"es":""}</span>
+                      <span style={{fontSize:10,color:allDone?T.olive:T.textSub,fontWeight:allDone?600:400}}>{gms.length} match{gms.length!==1?"es":""}{allDone?" ✓":""}</span>
                     </div>
                     {gms.map((g,i)=><GameCard key={i} g={g}/>)}
                   </div>
                 );
               })}
-              {Object.keys(grouped).filter(r=>!roundOrder.includes(r)).map(rnd=>(
-                <div key={rnd} style={{marginBottom:24}}>
-                  <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:T.navy,marginBottom:10}}>{rnd}</div>
-                  {grouped[rnd].map((g,i)=><GameCard key={i} g={g}/>)}
-                </div>
-              ))}
             </div>
           );
         })()}
