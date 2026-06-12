@@ -1381,6 +1381,16 @@ function DraftApp({ mp }){
               );
             })()}
 
+            {/* Scoring System */}
+            <div className="card" style={{padding:"12px 14px",marginBottom:14}}>
+              <div style={{fontSize:9.5,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:T.textSub,marginBottom:8}}>Scoring System</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"4px 16px",fontSize:11.5,color:T.navyLt}}>
+                {[["W=3 D=1","Group"],["5","R32"],["6","R16"],["7","QF"],["8","SF"],["10","Final"]].map(([p,l])=>(
+                  <span key={l}><strong style={{color:T.navy}}>{p}</strong> {l}</span>
+                ))}
+              </div>
+            </div>
+
             {/* Table */}
             <div className="card" style={{overflow:"hidden",marginBottom:14}}>
               {scores.map((s,rank)=>(
@@ -1430,15 +1440,6 @@ function DraftApp({ mp }){
                   )}
                 </div>
               ))}
-            </div>
-
-            <div className="card" style={{padding:"12px 14px"}}>
-              <div style={{fontSize:9.5,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:T.textSub,marginBottom:8}}>Scoring System</div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:"4px 16px",fontSize:11.5,color:T.navyLt}}>
-                {[["W=3 D=1","Group"],["5","R32"],["6","R16"],["7","QF"],["8","SF"],["10","Final"]].map(([p,l])=>(
-                  <span key={l}><strong style={{color:T.navy}}>{p}</strong> {l}</span>
-                ))}
-              </div>
             </div>
           </div>
         )}
