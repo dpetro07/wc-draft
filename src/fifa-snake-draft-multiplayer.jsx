@@ -218,6 +218,10 @@ function useESPN(){
         const rnd  = (ev.season && ev.season.slug) || "";
         const gameDate = ev.date || (comp.date) || "";
         const gameName = ev.name || "";
+        const venue = (comp.venue && comp.venue.fullName) || "";
+        const venueCity = (comp.venue && comp.venue.address && comp.venue.address.city) || "";
+        const venueState = (comp.venue && comp.venue.address && comp.venue.address.state) || "";
+        const location = venue ? (venueCity ? `${venue}, ${venueCity}${venueState?", "+venueState:""}` : venue) : "";
         // Determine round label
         const rl = rnd.toLowerCase();
         let roundLabel = "Group Stage";
@@ -227,8 +231,8 @@ function useESPN(){
         else if(rl.includes("semi") && !rl.includes("final")) roundLabel = "Semi-Finals";
         else if(rl.includes("final") && !rl.includes("semi") && !rl.includes("quarter")) roundLabel = "Final";
         else if(rl.includes("third") || rl.includes("3rd")) roundLabel = "3rd Place";
-        games.push({home, away, hScore:hS, aScore:aS, status:st, completed:done, clock, roundLabel, gameDate, gameName});
-        if(st === "in") live.push({home, away, hScore:hS, aScore:aS, clock, roundLabel, gameDate});
+        games.push({home, away, hScore:hS, aScore:aS, status:st, completed:done, clock, roundLabel, gameDate, gameName, location});
+        if(st === "in") live.push({home, away, hScore:hS, aScore:aS, clock, roundLabel, gameDate, location});
         // Process both completed AND live games for standings (live scores treated as current result)
         if(!done && st !== "in") continue;
         let rk = null;
@@ -1480,7 +1484,10 @@ function DraftApp({ mp }){
                   <span style={{fontSize:10,color:isLive?T.danger:T.textSub,fontWeight:isLive?700:500}}>
                     {isLive ? "● LIVE · "+g.clock : fin ? "Final" : etTime || "TBD"}
                   </span>
-                  {g.roundLabel && <span style={{fontSize:9,color:T.olive,fontWeight:600}}>{g.roundLabel}</span>}
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    {g.location && <span style={{fontSize:8.5,color:T.textSub,fontWeight:500}}>📍 {g.location}</span>}
+                    {g.roundLabel && <span style={{fontSize:9,color:T.olive,fontWeight:600}}>{g.roundLabel}</span>}
+                  </div>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}>
