@@ -1718,13 +1718,14 @@ function DraftApp({ mp }){
           const leftQF=qf.slice(0,2), rightQF=qf.slice(2,4);
           const leftSF=sf.slice(0,1), rightSF=sf.slice(1,2);
 
-          const MATCH_H = 52;
+          const MATCH_H = 76;
           const GAP = 4;
 
           function MatchCard({game, compact}){
-            const h = compact ? 44 : MATCH_H;
+            const h = compact ? 68 : MATCH_H;
             if(!game) return (
-              <div style={{height:h,background:T.card,border:"1px solid "+T.navy+"0a",borderRadius:6,display:"flex",flexDirection:"column",justifyContent:"center",padding:"0 8px",minWidth:compact?120:140}}>
+              <div style={{height:h,background:T.card,border:"1px solid "+T.navy+"0a",borderRadius:6,display:"flex",flexDirection:"column",justifyContent:"center",padding:"4px 8px",minWidth:compact?130:150}}>
+                <div style={{fontSize:7,color:T.textSub,marginBottom:2}}>TBD</div>
                 <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}>
                   <div style={{width:14,height:14,borderRadius:4,background:T.creamDk,fontSize:6,display:"flex",alignItems:"center",justifyContent:"center"}}>?</div>TBD<span style={{marginLeft:"auto"}}>—</span>
                 </div>
@@ -1738,9 +1739,15 @@ function DraftApp({ mp }){
             const hO=ht?ownerOf(ht.name):null, aO=at?ownerOf(at.name):null;
             const isLive=game.status==="in", done=game.completed;
             const hW=game.hScore>game.aScore, aW=game.aScore>game.hScore;
+            const etTime=game.gameDate?new Date(game.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit",timeZoneName:"short"}):"";
+            const etDate=game.gameDate?new Date(game.gameDate).toLocaleDateString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric"}):"";
             return (
-              <div style={{height:h,background:T.card,border:"1px solid "+(isLive?T.danger+"44":T.navy+"0a"),borderRadius:6,display:"flex",flexDirection:"column",justifyContent:"center",padding:"0 8px",minWidth:compact?120:140,boxShadow:isLive?"0 0 6px "+T.danger+"18":"none"}}>
-                {isLive && <div style={{fontSize:6,color:T.danger,fontWeight:700,marginBottom:1}}>● LIVE {game.clock}</div>}
+              <div style={{height:h,background:T.card,border:"1px solid "+(isLive?T.danger+"44":T.navy+"0a"),borderRadius:6,display:"flex",flexDirection:"column",justifyContent:"center",padding:"4px 8px",minWidth:compact?130:150,boxShadow:isLive?"0 0 6px "+T.danger+"18":"none"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+                  <span style={{fontSize:7,color:isLive?T.danger:T.textSub,fontWeight:isLive?700:500}}>
+                    {isLive?"● LIVE · "+game.clock:done?"Final":etDate&&etTime?etDate+" · "+etTime:"TBD"}
+                  </span>
+                </div>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
                   {ht?<MiniCard team={ht} size={14}/>:<div style={{width:14,height:14,borderRadius:4,background:T.creamDk,fontSize:6,display:"flex",alignItems:"center",justifyContent:"center"}}>?</div>}
                   <div style={{flex:1,minWidth:0,overflow:"hidden"}}>
@@ -1758,10 +1765,10 @@ function DraftApp({ mp }){
                   </div>
                   <span style={{fontSize:12,fontWeight:700,color:(done&&aW)?T.olive:T.navy,minWidth:12,textAlign:"right"}}>{(isLive||done)?game.aScore:"—"}</span>
                 </div>
+                {game.location&&<div style={{fontSize:6,color:T.textSub,textAlign:"center",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📍 {game.location}</div>}
               </div>
             );
           }
-
           function RoundCol({games, slots, label}){
             const filled = [];
             for(let i=0;i<slots;i++) filled.push(games[i]||null);
