@@ -797,6 +797,7 @@ function DraftApp({ mp }){
   const [lotteryDone,setLotteryDone]=useState(false);
   const [tab,      setTab]     = useState("standings");
   const [expanded, setExpanded]= useState(null);
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const [histF,    setHistF]   = useState("all");
   const [pwView,   setPwView]  = useState("all");
 
@@ -1427,15 +1428,58 @@ function DraftApp({ mp }){
                           else if(res.r8==="W") sl={l:"QF Win",c:T.olive};
                           else if(res.r16==="W") sl={l:"R16 Win",c:T.navyLt};
                           else if(res.r32==="W") sl={l:"R32 Win",c:T.navyLt};
+                          const teamKey = s.pi+"-"+b.team.name;
+                          const isOpen = expanded===s.pi && selectedTeam===teamKey;
+                          // Find all games for this team from ESPN
+                          const teamGames = allGames.filter(g=>{
+                            const nH = findTeamByName(g.home);
+                            const nA = findTeamByName(g.away);
+                            return (nH && nH.name===b.team.name) || (nA && nA.name===b.team.name);
+                          }).filter(g=>g.completed || g.status==="in");
                           return (
-                            <div key={j} style={{display:"flex",alignItems:"center",gap:8,background:T.card,border:"1.5px solid "+(b.pts>0?T.olive+"55":T.cardBorder),borderRadius:9,padding:"7px 9px"}}>
-                              <MiniCard team={b.team} size={30}/>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:11,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.team.name}</div>
-                                <div style={{fontSize:8.5,color:sl.c,fontWeight:600}}>{sl.l}</div>
-                                <div style={{fontSize:8,color:T.textSub}}>OVR {b.team.ovr} · #{b.team.fifaRank}</div>
+                            <div key={j}>
+                              <div style={{display:"flex",alignItems:"center",gap:8,background:T.card,border:"1.5px solid "+(isOpen?T.olive:b.pts>0?T.olive+"55":T.cardBorder),borderRadius:9,padding:"7px 9px",cursor:"pointer",transition:"border-color 0.15s"}}
+                                   onClick={()=>setSelectedTeam(isOpen?null:teamKey)}>
+                                <MiniCard team={b.team} size={30}/>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:11,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.team.name}</div>
+                                  <div style={{fontSize:8.5,color:sl.c,fontWeight:600}}>{sl.l}</div>
+                                  <div style={{fontSize:8,color:T.textSub}}>OVR {b.team.ovr} · #{b.team.fifaRank}</div>
+                                </div>
+                                <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+                                  <div style={{fontSize:16,fontWeight:800,color:b.pts>0?T.olive:T.textSub}}>{b.pts}</div>
+                                  <div style={{fontSize:7,color:T.textSub}}>{teamGames.length>0?teamGames.length+" game"+(teamGames.length!==1?"s":""):""}</div>
+                                </div>
                               </div>
-                              <div style={{fontSize:16,fontWeight:800,color:b.pts>0?T.olive:T.textSub}}>{b.pts}</div>
+                              {/* Expanded game history for this team */}
+                              {isOpen && teamGames.length>0 && (
+                                <div style={{margin:"4px 0 6px",padding:"0 4px"}}>
+                                  {teamGames.map((g,gi)=>{
+                                    const isHome = (findTeamByName(g.home)||{}).name===b.team.name;
+                                    const opp = isHome ? g.away : g.home;
+                                    const oppTeam = findTeamByName(opp);
+                                    const myScore = isHome ? g.hScore : g.aScore;
+                                    const oppScore = isHome ? g.aScore : g.hScore;
+                                    const won = myScore>oppScore;
+                                    const draw = myScore===oppScore;
+                                    const resultLabel = won?"W":draw?"D":"L";
+                                    const resultColor = won?T.olive:draw?"#F59E0B":T.danger;
+                                    return (
+                                      <div key={gi} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 6px",borderBottom:gi<teamGames.length-1?"1px solid "+T.navy+"0a":"",fontSize:11}}>
+                                        <span style={{fontWeight:800,color:resultColor,width:14,flexShrink:0}}>{resultLabel}</span>
+                                        {oppTeam && <MiniCard team={oppTeam} size={18}/>}
+                                        <span style={{flex:1,color:T.navyLt,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.status==="in"?"vs ":"vs "}{opp}</span>
+                                        <span style={{fontWeight:700,color:T.navy}}>{myScore}–{oppScore}</span>
+                                        {g.status==="in" && <span style={{fontSize:8,color:T.danger,fontWeight:700}}>LIVE</span>}
+                                        <span style={{fontSize:8,color:T.textSub}}>{g.roundLabel}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              {isOpen && teamGames.length===0 && (
+                                <div style={{padding:"6px 8px",fontSize:10,color:T.textSub,fontStyle:"italic"}}>No games played yet</div>
+                              )}
                             </div>
                           );
                         })}
@@ -1484,10 +1528,7 @@ function DraftApp({ mp }){
                   <span style={{fontSize:10,color:isLive?T.danger:T.textSub,fontWeight:isLive?700:500}}>
                     {isLive ? "● LIVE · "+g.clock : fin ? "Final" : etTime || "TBD"}
                   </span>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    {g.location && <span style={{fontSize:8.5,color:T.textSub,fontWeight:500}}>📍 {g.location}</span>}
-                    {g.roundLabel && <span style={{fontSize:9,color:T.olive,fontWeight:600}}>{g.roundLabel}</span>}
-                  </div>
+                  {g.roundLabel && <span style={{fontSize:9,color:T.olive,fontWeight:600}}>{g.roundLabel}</span>}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}>
@@ -1512,6 +1553,7 @@ function DraftApp({ mp }){
                     </div>
                   </div>
                 </div>
+                {g.location && <div style={{textAlign:"center",marginTop:8,fontSize:8.5,color:T.textSub}}>📍 {g.location}</div>}
               </div>
             );
           }
