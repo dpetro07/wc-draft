@@ -182,7 +182,7 @@ function useESPN(){
   const run = useCallback(async () => {
     try {
       // Fetch all group stage matches (June 11 - June 28, 2026)
-      const res = await fetch(ESPN_URL + "?limit=200&dates=20260611-20260628");
+      const res = await fetch(ESPN_URL + "?limit=200&dates=20260611-20260719");
       const json = await res.json();
       const games=[], live=[], tr={};
       // Normalize ESPN display names → our internal ALL_TEAMS names
@@ -1282,6 +1282,7 @@ function DraftApp({ mp }){
     {key:"standings", iconId:"bars",    label:"Standings"},
     {key:"live",      iconId:"bolt",    label:"Live"},
     {key:"results",   iconId:"gear",    label:"Results"},
+    {key:"bracket",   iconId:"trophy",  label:"Bracket"},
     {key:"history",   iconId:"history", label:"History"},
     {key:"power",     iconId:"star",    label:"Rankings"},
   ];
@@ -1703,6 +1704,121 @@ function DraftApp({ mp }){
             </div>
           );
         })()}
+
+        {/* ─ BRACKET ─ */}
+        {tab==="bracket" && (()=>{
+          const rounds = [
+            {key:"Round of 32", label:"R32", slots:16},
+            {key:"Round of 16", label:"R16", slots:8},
+            {key:"Quarter-Finals", label:"QF", slots:4},
+            {key:"Semi-Finals", label:"SF", slots:2},
+            {key:"Final", label:"Final", slots:1},
+          ];
+          function getGamesForRound(roundKey){
+            return allGames.filter(g=>g.roundLabel===roundKey).sort((a,b)=>new Date(a.gameDate||0)-new Date(b.gameDate||0));
+          }
+          function BracketMatch({game}){
+            if(!game){
+              return (
+                <div style={{background:T.card,border:"1px solid "+T.navy+"10",borderRadius:10,padding:"8px 10px",marginBottom:6,minWidth:160}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                    <div style={{width:20,height:20,borderRadius:6,background:T.creamDk,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:T.textSub}}>?</div>
+                    <span style={{fontSize:11,color:T.textSub}}>TBD</span>
+                    <span style={{marginLeft:"auto",fontSize:11,color:T.textSub}}>—</span>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <div style={{width:20,height:20,borderRadius:6,background:T.creamDk,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:T.textSub}}>?</div>
+                    <span style={{fontSize:11,color:T.textSub}}>TBD</span>
+                    <span style={{marginLeft:"auto",fontSize:11,color:T.textSub}}>—</span>
+                  </div>
+                </div>
+              );
+            }
+            const homeTeam = findTeamByName(game.home);
+            const awayTeam = findTeamByName(game.away);
+            const hO = homeTeam ? ownerOf(homeTeam.name) : null;
+            const aO = awayTeam ? ownerOf(awayTeam.name) : null;
+            const isLive = game.status==="in";
+            const fin = game.completed;
+            const hW = game.hScore > game.aScore;
+            const aW = game.aScore > game.hScore;
+            return (
+              <div style={{background:T.card,border:"1px solid "+(isLive?T.danger+"55":T.navy+"12"),borderRadius:10,padding:"8px 10px",marginBottom:6,minWidth:160,boxShadow:isLive?"0 0 8px "+T.danger+"22":T.shadowSm}}>
+                {isLive && <div style={{fontSize:7,color:T.danger,fontWeight:700,marginBottom:4}}>● LIVE · {game.clock}</div>}
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                  {homeTeam ? <MiniCard team={homeTeam} size={20}/> : <div style={{width:20,height:20,borderRadius:6,background:T.creamDk,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:T.textSub}}>?</div>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,fontWeight:(fin&&hW)?700:500,color:(fin&&hW)?T.navy:fin&&!hW?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.home||"TBD"}</div>
+                    {hO && <div style={{fontSize:7,fontWeight:600,color:PLAYER_COLORS[hO.idx%8]}}>{hO.name}</div>}
+                  </div>
+                  <span style={{fontSize:14,fontWeight:700,color:(fin&&hW)?T.olive:T.navy,minWidth:16,textAlign:"right"}}>{(isLive||fin)?game.hScore:"—"}</span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  {awayTeam ? <MiniCard team={awayTeam} size={20}/> : <div style={{width:20,height:20,borderRadius:6,background:T.creamDk,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:T.textSub}}>?</div>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,fontWeight:(fin&&aW)?700:500,color:(fin&&aW)?T.navy:fin&&!aW?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.away||"TBD"}</div>
+                    {aO && <div style={{fontSize:7,fontWeight:600,color:PLAYER_COLORS[aO.idx%8]}}>{aO.name}</div>}
+                  </div>
+                  <span style={{fontSize:14,fontWeight:700,color:(fin&&aW)?T.olive:T.navy,minWidth:16,textAlign:"right"}}>{(isLive||fin)?game.aScore:"—"}</span>
+                </div>
+                {fin && <div style={{fontSize:7,color:T.textSub,textAlign:"center",marginTop:4}}>Final</div>}
+              </div>
+            );
+          }
+          return (
+            <div style={{padding:"18px 0"}}>
+              <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0 14px"}}>
+                <div style={{display:"flex",gap:12,minWidth:900,alignItems:"flex-start"}}>
+                  {rounds.map(rnd=>{
+                    const games = getGamesForRound(rnd.key);
+                    const filledGames = [];
+                    for(let i=0;i<rnd.slots;i++) filledGames.push(games[i]||null);
+                    return (
+                      <div key={rnd.key} style={{flex:1,minWidth:170}}>
+                        <div style={{textAlign:"center",marginBottom:10}}>
+                          <div style={{fontSize:10,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:T.textSub}}>{rnd.label}</div>
+                          <div style={{fontSize:8,color:T.textSub}}>{games.filter(g=>g.completed).length}/{rnd.slots} complete</div>
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",justifyContent:"space-around",minHeight:rnd.slots>1?rnd.slots*56:0,gap:rnd.slots<=2?12:4}}>
+                          {filledGames.map((g,i)=><BracketMatch key={i} game={g}/>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div style={{minWidth:120,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                    <div style={{fontSize:10,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:T.textSub,marginBottom:10}}>Champion</div>
+                    {(()=>{
+                      const finalGame = getGamesForRound("Final")[0];
+                      if(!finalGame || !finalGame.completed) return <div style={{fontSize:32}}>🏆</div>;
+                      const winnerName = finalGame.hScore > finalGame.aScore ? finalGame.home : finalGame.away;
+                      const winnerTeam = findTeamByName(winnerName);
+                      const winnerOwner = winnerTeam ? ownerOf(winnerTeam.name) : null;
+                      return (
+                        <div style={{textAlign:"center"}}>
+                          <div style={{fontSize:32,marginBottom:6}}>🏆</div>
+                          {winnerTeam && <MiniCard team={winnerTeam} size={48}/>}
+                          <div style={{fontSize:14,fontWeight:800,color:T.navy,marginTop:6}}>{winnerName}</div>
+                          {winnerOwner && <div style={{fontSize:10,fontWeight:700,color:PLAYER_COLORS[winnerOwner.idx%8],marginTop:2}}>{winnerOwner.name}</div>}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+              {(()=>{
+                const thirdPlace = allGames.filter(g=>g.roundLabel==="3rd Place");
+                if(thirdPlace.length===0) return null;
+                return (
+                  <div style={{maxWidth:300,margin:"20px auto 0",padding:"0 14px"}}>
+                    <div style={{fontSize:10,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:T.textSub,textAlign:"center",marginBottom:8}}>3rd Place Match</div>
+                    <BracketMatch game={thirdPlace[0]}/>
+                  </div>
+                );
+              })()}
+            </div>
+          );
+        })()}
+
         {tab==="history" && (
           <div style={{maxWidth:620,margin:"0 auto",padding:"18px 14px"}}>
             <div style={{display:"flex",gap:5,marginBottom:14,overflowX:"auto",paddingBottom:3}}>
