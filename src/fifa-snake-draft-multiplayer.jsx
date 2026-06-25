@@ -1747,6 +1747,7 @@ function DraftApp({ mp }){
                   <span style={{fontSize:7,color:isLive?T.danger:T.textSub,fontWeight:isLive?700:500}}>
                     {isLive?"● LIVE · "+game.clock:done?"Final":etDate&&etTime?etDate+" · "+etTime:"TBD"}
                   </span>
+                  {game.roundLabel&&<span style={{fontSize:6,fontWeight:700,color:T.olive,letterSpacing:0.5}}>{game.roundLabel==="Round of 32"?"Rd of 32":game.roundLabel==="Round of 16"?"Rd of 16":game.roundLabel==="Quarter-Finals"?"QF":game.roundLabel==="Semi-Finals"?"SF":game.roundLabel}</span>}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
                   {ht?<MiniCard team={ht} size={14}/>:<div style={{width:14,height:14,borderRadius:4,background:T.creamDk,fontSize:6,display:"flex",alignItems:"center",justifyContent:"center"}}>?</div>}
