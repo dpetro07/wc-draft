@@ -1782,121 +1782,161 @@ function DraftApp({ mp }){
         {/* ─ BRACKET ─ */}
         {tab==="bracket" && (()=>{
           function getRound(rk){ return allGames.filter(g=>g.roundLabel===rk).sort((a,b)=>new Date(a.gameDate||0)-new Date(b.gameDate||0)); }
-          const rounds = [
-            {key:"Round of 32",label:"Round of 32",short:"R32",games:getRound("Round of 32"),count:16},
-            {key:"Round of 16",label:"Round of 16",short:"R16",games:getRound("Round of 16"),count:8},
-            {key:"Quarter-Finals",label:"Quarter-Finals",short:"QF",games:getRound("Quarter-Finals"),count:4},
-            {key:"Semi-Finals",label:"Semi-Finals",short:"SF",games:getRound("Semi-Finals"),count:2},
-            {key:"Final",label:"Final",short:"F",games:getRound("Final"),count:1},
-            {key:"3rd Place",label:"3rd Place",short:"3rd",games:getRound("3rd Place"),count:1},
-          ];
+          const r32g=getRound("Round of 32"), r16g=getRound("Round of 16");
+          const qfg=getRound("Quarter-Finals"), sfg=getRound("Semi-Finals");
+          const fing=getRound("Final"), thirdg=getRound("3rd Place");
 
-          function BCard({game}){
+          // FIFA WC 2026 R32 bracket seeding — groups A-L, 1=winner 2=runner-up
+          // Left half path: A,B,C,D feeders → left QF/SF
+          // Right half path: G,H,I,J,K,L feeders → right QF/SF
+          // This ensures same-group teams are on opposite sides
+          const R32_SEEDS = {
+            left:[
+              {home:"1A",away:"2C"},{home:"1B",away:"2D"},
+              {home:"1C",away:"2A"},{home:"1D",away:"2B"},
+              {home:"1E",away:"2G"},{home:"1F",away:"2H"},
+              {home:"1G",away:"2E"},{home:"1H",away:"2F"},
+            ],
+            right:[
+              {home:"1I",away:"2K"},{home:"1J",away:"2L"},
+              {home:"1K",away:"2I"},{home:"1L",away:"2J"},
+              {home:"3A/B",away:"3C/D"},{home:"3E/F",away:"3G/H"},
+              {home:"3I/J",away:"3K/L"},{home:"Best 3rd",away:"Best 3rd"},
+            ],
+          };
+
+          // Split ESPN data into left/right halves (first 8 = left bracket, last 8 = right)
+          const L={r32:r32g.slice(0,8), r16:r16g.slice(0,4), qf:qfg.slice(0,2), sf:sfg.slice(0,1)};
+          const R={r32:r32g.slice(8,16), r16:r16g.slice(4,8), qf:qfg.slice(2,4), sf:sfg.slice(1,2)};
+
+          const MH=72;
+
+          function MC({game,seed}){
+            if(!game && seed) return (
+              <div style={{height:MH,background:T.card,border:"1px solid "+T.navy+"0a",borderRadius:8,padding:"4px 8px",display:"flex",flexDirection:"column",justifyContent:"center",width:"100%"}}>
+                <div style={{fontSize:7,color:T.textSub,marginBottom:2}}>TBD</div>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}>
+                  <div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>
+                  <span style={{flex:1}}>{seed.home}</span><span>–</span>
+                </div>
+                <div style={{height:1,background:T.navy+"08",margin:"2px 0"}}/>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}>
+                  <div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>
+                  <span style={{flex:1}}>{seed.away}</span><span>–</span>
+                </div>
+              </div>
+            );
             if(!game) return (
-              <div style={{background:T.card,border:"1px solid "+T.navy+"08",borderRadius:10,overflow:"hidden",marginBottom:8}}>
-                <div style={{padding:"6px 12px",fontSize:8,color:T.textSub}}>TBD</div>
-                <div style={{display:"flex",borderTop:"1px solid "+T.navy+"06"}}>
-                  <div style={{flex:1,padding:"8px 12px",display:"flex",alignItems:"center",gap:8}}>
-                    <div style={{width:20,height:14,borderRadius:3,background:T.creamDk}}/>
-                    <span style={{fontSize:12,color:T.textSub}}>TBD</span>
-                  </div>
-                  <div style={{width:36,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:T.textSub,borderLeft:"1px solid "+T.navy+"06"}}>–</div>
-                </div>
-                <div style={{display:"flex",borderTop:"1px solid "+T.navy+"06"}}>
-                  <div style={{flex:1,padding:"8px 12px",display:"flex",alignItems:"center",gap:8}}>
-                    <div style={{width:20,height:14,borderRadius:3,background:T.creamDk}}/>
-                    <span style={{fontSize:12,color:T.textSub}}>TBD</span>
-                  </div>
-                  <div style={{width:36,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:T.textSub,borderLeft:"1px solid "+T.navy+"06"}}>–</div>
-                </div>
+              <div style={{height:MH,background:T.card,border:"1px solid "+T.navy+"0a",borderRadius:8,padding:"4px 8px",display:"flex",flexDirection:"column",justifyContent:"center",width:"100%"}}>
+                <div style={{fontSize:7,color:T.textSub,marginBottom:2}}>TBD</div>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}><div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>TBD<span style={{marginLeft:"auto"}}>–</span></div>
+                <div style={{height:1,background:T.navy+"08",margin:"2px 0"}}/>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}><div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>TBD<span style={{marginLeft:"auto"}}>–</span></div>
               </div>
             );
             const ht=findTeamByName(game.home),at=findTeamByName(game.away);
             const hO=ht?ownerOf(ht.name):null,aO=at?ownerOf(at.name):null;
             const live=game.status==="in",done=game.completed;
-            const hW=game.hScore>game.aScore,aW=game.aScore>game.hScore,draw=game.hScore===game.aScore;
-            const etD=game.gameDate?new Date(game.gameDate).toLocaleDateString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric"}):"";
-            const etT=game.gameDate?new Date(game.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit",timeZoneName:"short"}):"";
-            const hBg=(done&&hW)?T.olive+"0a":"transparent";
-            const aBg=(done&&aW)?T.olive+"0a":"transparent";
+            const hW=game.hScore>game.aScore,aW=game.aScore>game.hScore;
+            const etD=game.gameDate?new Date(game.gameDate).toLocaleDateString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric"}):"";
+            const etT=game.gameDate?new Date(game.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit"}):"";
             return (
-              <div style={{background:T.card,border:"1px solid "+(live?T.danger+"33":T.navy+"08"),borderRadius:10,overflow:"hidden",marginBottom:8,boxShadow:live?"0 0 8px "+T.danger+"14":"none"}}>
-                <div style={{padding:"6px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontSize:9,color:live?T.danger:T.textSub,fontWeight:live?700:400}}>
-                    {live?"● LIVE · "+game.clock:done?"Final":etD&&etT?etD+" · "+etT:"TBD"}
-                  </span>
-                  {game.roundLabel&&<span style={{fontSize:8,color:T.olive,fontWeight:600}}>{game.roundLabel==="Round of 32"?"R32":game.roundLabel==="Round of 16"?"R16":game.roundLabel==="Quarter-Finals"?"QF":game.roundLabel==="Semi-Finals"?"SF":game.roundLabel}</span>}
+              <div style={{height:MH,background:T.card,border:"1px solid "+(live?T.danger+"44":T.navy+"0a"),borderRadius:8,padding:"4px 8px",display:"flex",flexDirection:"column",justifyContent:"center",width:"100%",boxShadow:live?"0 0 6px "+T.danger+"18":"none"}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:1}}>
+                  <span style={{fontSize:7,color:live?T.danger:T.textSub,fontWeight:live?700:400}}>{live?"● LIVE "+game.clock:done?"Final":etD+" "+etT}</span>
+                  {game.roundLabel&&<span style={{fontSize:6,color:T.olive,fontWeight:700}}>{game.roundLabel==="Round of 32"?"R32":game.roundLabel==="Round of 16"?"R16":game.roundLabel==="Quarter-Finals"?"QF":game.roundLabel==="Semi-Finals"?"SF":game.roundLabel}</span>}
                 </div>
-                <div style={{display:"flex",borderTop:"1px solid "+T.navy+"06",background:hBg}}>
-                  <div style={{flex:1,padding:"7px 12px",display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                    {ht?<MiniCard team={ht} size={20}/>:<div style={{width:20,height:14,borderRadius:3,background:T.creamDk}}/>}
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:12,fontWeight:(done&&hW)?700:400,color:(done&&hW)?T.navy:done&&!hW&&!draw?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.home||"TBD"}</div>
-                      {hO&&<div style={{fontSize:7,color:PLAYER_COLORS[hO.idx%8],fontWeight:600}}>{hO.name}</div>}
-                    </div>
-                    {(done&&hW)&&<span style={{fontSize:8,color:T.olive,fontWeight:700}}>▶</span>}
-                  </div>
-                  <div style={{width:40,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,color:(done&&hW)?T.olive:(live||done)?T.navy:T.textSub,borderLeft:"1px solid "+T.navy+"06",background:(done&&hW)?T.olive+"12":"transparent"}}>
-                    {(live||done)?game.hScore:"–"}
-                  </div>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  {ht?<MiniCard team={ht} size={14}/>:<div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>}
+                  <span style={{flex:1,fontSize:9,fontWeight:(done&&hW)?700:400,color:(done&&hW)?T.navy:done?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.home||"TBD"}</span>
+                  {hO&&<span style={{fontSize:6,color:PLAYER_COLORS[hO.idx%8],fontWeight:600,marginRight:2}}>{hO.name}</span>}
+                  <span style={{fontSize:12,fontWeight:700,color:(done&&hW)?T.olive:T.navy,width:14,textAlign:"right"}}>{(live||done)?game.hScore:"–"}</span>
                 </div>
-                <div style={{display:"flex",borderTop:"1px solid "+T.navy+"06",background:aBg}}>
-                  <div style={{flex:1,padding:"7px 12px",display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                    {at?<MiniCard team={at} size={20}/>:<div style={{width:20,height:14,borderRadius:3,background:T.creamDk}}/>}
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:12,fontWeight:(done&&aW)?700:400,color:(done&&aW)?T.navy:done&&!aW&&!draw?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.away||"TBD"}</div>
-                      {aO&&<div style={{fontSize:7,color:PLAYER_COLORS[aO.idx%8],fontWeight:600}}>{aO.name}</div>}
-                    </div>
-                    {(done&&aW)&&<span style={{fontSize:8,color:T.olive,fontWeight:700}}>▶</span>}
-                  </div>
-                  <div style={{width:40,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,color:(done&&aW)?T.olive:(live||done)?T.navy:T.textSub,borderLeft:"1px solid "+T.navy+"06",background:(done&&aW)?T.olive+"12":"transparent"}}>
-                    {(live||done)?game.aScore:"–"}
-                  </div>
+                <div style={{height:1,background:T.navy+"08",margin:"2px 0"}}/>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  {at?<MiniCard team={at} size={14}/>:<div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>}
+                  <span style={{flex:1,fontSize:9,fontWeight:(done&&aW)?700:400,color:(done&&aW)?T.navy:done?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.away||"TBD"}</span>
+                  {aO&&<span style={{fontSize:6,color:PLAYER_COLORS[aO.idx%8],fontWeight:600,marginRight:2}}>{aO.name}</span>}
+                  <span style={{fontSize:12,fontWeight:700,color:(done&&aW)?T.olive:T.navy,width:14,textAlign:"right"}}>{(live||done)?game.aScore:"–"}</span>
                 </div>
-                {game.location&&<div style={{padding:"4px 12px",borderTop:"1px solid "+T.navy+"06",fontSize:8,color:T.textSub,textAlign:"center"}}>📍 {game.location}</div>}
+                {game.location&&<div style={{fontSize:5.5,color:T.textSub,textAlign:"center",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📍 {game.location}</div>}
               </div>
             );
           }
 
-          const finalGame=getRound("Final")[0];
+          function BCol({games,slots,seeds,w}){
+            const filled=[];for(let i=0;i<slots;i++)filled.push({game:games[i]||null,seed:seeds?seeds[i]:null});
+            return (
+              <div style={{display:"flex",flexDirection:"column",justifyContent:"space-around",width:w||140,flexShrink:0,gap:0,padding:"0 2px"}}>
+                {filled.map((f,i)=><MC key={i} game={f.game} seed={f.seed}/>)}
+              </div>
+            );
+          }
+
+          function Conn({pairs,dir}){
+            return (
+              <div style={{display:"flex",flexDirection:"column",justifyContent:"space-around",width:14,flexShrink:0}}>
+                {Array.from({length:pairs}).map((_,i)=>(
+                  <div key={i} style={{flex:1,position:"relative"}}>
+                    <div style={{position:"absolute",top:"25%",bottom:"25%",[dir==="r"?"right":"left"]:0,width:0,borderLeft:"1.5px solid "+T.navy+"18"}}/>
+                    <div style={{position:"absolute",top:"25%",[dir==="r"?"right":"left"]:0,width:7,borderTop:"1.5px solid "+T.navy+"18"}}/>
+                    <div style={{position:"absolute",bottom:"25%",[dir==="r"?"right":"left"]:0,width:7,borderTop:"1.5px solid "+T.navy+"18"}}/>
+                    <div style={{position:"absolute",top:"calc(50% - 1px)",[dir==="r"?"left":"right"]:0,width:7,borderTop:"1.5px solid "+T.navy+"18"}}/>
+                  </div>
+                ))}
+              </div>
+            );
+          }
+
+          const finalGame=fing[0]||null;
           const champ=finalGame&&finalGame.completed?(finalGame.hScore>finalGame.aScore?finalGame.home:finalGame.away):null;
           const champT=champ?findTeamByName(champ):null;
           const champO=champT?ownerOf(champT.name):null;
 
           return (
-            <div style={{maxWidth:680,margin:"0 auto",padding:"14px 14px 40px"}}>
-              {champ?(
-                <div className="card" style={{padding:"16px",marginBottom:20,textAlign:"center",background:T.olive+"08",border:"1px solid "+T.olive+"22"}}>
-                  <div style={{fontSize:36}}>🏆</div>
-                  {champT&&<div style={{margin:"6px auto"}}><MiniCard team={champT} size={48}/></div>}
-                  <div style={{fontSize:18,fontWeight:800,color:T.navy}}>{champ}</div>
-                  <div style={{fontSize:9,color:T.textSub,fontWeight:600,marginTop:2}}>FIFA World Cup 2026 Champion</div>
-                  {champO&&<div style={{fontSize:11,fontWeight:700,color:PLAYER_COLORS[champO.idx%8],marginTop:4}}>Drafted by {champO.name}</div>}
+            <div style={{padding:"10px 0"}}>
+              <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0 6px"}}>
+                <div style={{display:"flex",alignItems:"center",minWidth:1060,marginBottom:6}}>
+                  {[{l:"ROUND OF 32",w:140},{l:"",w:14},{l:"ROUND OF 16",w:140},{l:"",w:14},{l:"QUARTERFINALS",w:140},{l:"",w:14},{l:"SEMIFINALS",w:130},{l:"",w:10},{l:"FINAL",w:130},{l:"",w:10},{l:"SEMIFINALS",w:130},{l:"",w:14},{l:"QUARTERFINALS",w:140},{l:"",w:14},{l:"ROUND OF 16",w:140},{l:"",w:14},{l:"ROUND OF 32",w:140}].map((h,i)=>(
+                    <div key={i} style={{width:h.w,flexShrink:0,textAlign:"center",fontSize:7,fontWeight:700,letterSpacing:1,color:h.l==="FINAL"?T.olive:T.textSub,padding:"0 2px"}}>{h.l}</div>
+                  ))}
                 </div>
-              ):(
-                <div className="card" style={{padding:"16px",marginBottom:20,textAlign:"center"}}>
-                  <div style={{fontSize:28}}>🏆</div>
-                  <div style={{fontSize:13,fontWeight:600,color:T.textSub,marginTop:4}}>Champion TBD</div>
-                </div>
-              )}
-              {rounds.map(rnd=>{
-                const hasLive=rnd.games.some(g=>g.status==="in");
-                const doneCount=rnd.games.filter(g=>g.completed).length;
-                const filled=[];for(let i=0;i<rnd.count;i++)filled.push(rnd.games[i]||null);
-                return (
-                  <div key={rnd.key} style={{marginBottom:24}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                      {hasLive&&<div style={{width:8,height:8,borderRadius:"50%",background:T.danger,flexShrink:0}}/>}
-                      <div style={{fontSize:13,fontWeight:700,color:hasLive?T.danger:T.navy}}>{rnd.label}</div>
-                      <div style={{flex:1,height:1,background:T.navy+"12"}}/>
-                      <span style={{fontSize:10,color:doneCount===rnd.count&&doneCount>0?T.olive:T.textSub,fontWeight:doneCount===rnd.count&&doneCount>0?600:400}}>{doneCount}/{rnd.count}{doneCount===rnd.count&&doneCount>0?" ✓":""}</span>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:rnd.count>=4?"1fr 1fr":"1fr",gap:"0 12px"}}>
-                      {filled.map((g,i)=><BCard key={i} game={g}/>)}
+              </div>
+              <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0 6px 14px"}}>
+                <div style={{display:"flex",alignItems:"stretch",minWidth:1060,minHeight:8*(MH+8)}}>
+                  <BCol games={L.r32} slots={8} seeds={R32_SEEDS.left}/>
+                  <Conn pairs={4} dir="r"/>
+                  <BCol games={L.r16} slots={4}/>
+                  <Conn pairs={2} dir="r"/>
+                  <BCol games={L.qf} slots={2}/>
+                  <Conn pairs={1} dir="r"/>
+                  <BCol games={L.sf} slots={1} w={130}/>
+                  <div style={{width:130,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 4px",gap:8}}>
+                    <MC game={finalGame}/>
+                    <div style={{textAlign:"center"}}>
+                      <div style={{fontSize:24}}>🏆</div>
+                      {champT?(<>
+                        <MiniCard team={champT} size={32}/>
+                        <div style={{fontSize:10,fontWeight:800,color:T.navy,marginTop:3}}>{champ}</div>
+                        {champO&&<div style={{fontSize:8,fontWeight:700,color:PLAYER_COLORS[champO.idx%8]}}>{champO.name}</div>}
+                      </>):<div style={{fontSize:8,color:T.textSub,marginTop:2}}>TBD</div>}
                     </div>
                   </div>
-                );
-              })}
+                  <BCol games={R.sf} slots={1} w={130}/>
+                  <Conn pairs={1} dir="l"/>
+                  <BCol games={R.qf} slots={2}/>
+                  <Conn pairs={2} dir="l"/>
+                  <BCol games={R.r16} slots={4}/>
+                  <Conn pairs={4} dir="l"/>
+                  <BCol games={R.r32} slots={8} seeds={R32_SEEDS.right}/>
+                </div>
+              </div>
+              {thirdg.length>0&&(
+                <div style={{maxWidth:180,margin:"8px auto 0"}}>
+                  <div style={{fontSize:7,fontWeight:700,letterSpacing:1,color:T.textSub,textAlign:"center",marginBottom:4}}>3RD PLACE</div>
+                  <MC game={thirdg[0]}/>
+                </div>
+              )}
             </div>
           );
         })()}
