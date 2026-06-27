@@ -218,6 +218,7 @@ function useESPN(){
         const rnd  = (ev.season && ev.season.slug) || "";
         const gameDate = ev.date || (comp.date) || "";
         const gameName = ev.name || "";
+        const eventId = ev.id || "";
         const venue = (comp.venue && comp.venue.fullName) || "";
         const venueCity = (comp.venue && comp.venue.address && comp.venue.address.city) || "";
         const venueState = (comp.venue && comp.venue.address && comp.venue.address.state) || "";
@@ -231,7 +232,7 @@ function useESPN(){
         else if(rl.includes("semi") && !rl.includes("final")) roundLabel = "Semi-Finals";
         else if(rl.includes("final") && !rl.includes("semi") && !rl.includes("quarter")) roundLabel = "Final";
         else if(rl.includes("third") || rl.includes("3rd")) roundLabel = "3rd Place";
-        games.push({home, away, hScore:hS, aScore:aS, status:st, completed:done, clock, roundLabel, gameDate, gameName, location});
+        games.push({home, away, hScore:hS, aScore:aS, status:st, completed:done, clock, roundLabel, gameDate, gameName, location, eventId});
         if(st === "in") live.push({home, away, hScore:hS, aScore:aS, clock, roundLabel, gameDate, location});
         // Process both completed AND live games for standings (live scores treated as current result)
         if(!done && st !== "in") continue;
@@ -798,6 +799,8 @@ function DraftApp({ mp }){
   const [tab,      setTab]     = useState("standings");
   const [expanded, setExpanded]= useState(null);
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [selectedGameId, setSelectedGameId] = useState(null);
+  const [gameDetails, setGameDetails] = useState({});
   const [histF,    setHistF]   = useState("all");
   const [pwView,   setPwView]  = useState("all");
 
@@ -1513,6 +1516,46 @@ function DraftApp({ mp }){
             return new Date(dayGroups[a][0].gameDate||0)-new Date(dayGroups[b][0].gameDate||0);
           });
 
+          async function fetchGameDetails(eventId){
+            if(!eventId || gameDetails[eventId]) return;
+            try{
+              const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event="+eventId);
+              const j = await r.json();
+              const events = [];
+              // Parse key events (goals, cards)
+              for(const ke of (j.keyEvents||j.commentary||[])){
+                const type = (ke.type&&ke.type.text)||ke.text||"";
+                const clock = ke.clock&&ke.clock.displayValue||ke.time&&ke.time.displayValue||"";
+                const team = ke.team&&ke.team.displayName||"";
+                const players = (ke.participants||[]).map(p=>p.athlete&&p.athlete.displayName||"").filter(Boolean);
+                const tl = type.toLowerCase();
+                let icon = "";
+                if(tl.includes("goal")||tl.includes("score")) icon = "⚽";
+                else if(tl.includes("yellow")) icon = "🟨";
+                else if(tl.includes("red")||tl.includes("second yellow")) icon = "🟥";
+                else if(tl.includes("substitution")||tl.includes("sub")) icon = "🔄";
+                else if(tl.includes("penalty")||tl.includes("pen")) icon = "⚽";
+                if(icon) events.push({icon, clock, team, players, type});
+              }
+              // Fallback: parse from boxscore/roster details if keyEvents empty
+              if(events.length===0 && j.boxscore){
+                for(const team of (j.boxscore.teams||[])){
+                  const teamName = team.team&&team.team.displayName||"";
+                  for(const stat of (team.statistics||[])){
+                    if(stat.name==="goals"||stat.label==="Goals"){
+                      for(const a of (stat.athletes||[])){
+                        events.push({icon:"⚽",clock:"",team:teamName,players:[a.athlete&&a.athlete.displayName||""],type:"Goal"});
+                      }
+                    }
+                  }
+                }
+              }
+              setGameDetails(prev=>({...prev,[eventId]:events.length>0?events:[{icon:"ℹ️",clock:"",team:"",players:[],type:"No detailed events available yet"}]}));
+            }catch(e){
+              setGameDetails(prev=>({...prev,[eventId]:[{icon:"⚠️",clock:"",team:"",players:[],type:"Could not load match details"}]}));
+            }
+          }
+
           function GameCard({g}){
             const homeTeam = findTeamByName(g.home);
             const awayTeam = findTeamByName(g.away);
@@ -1523,13 +1566,26 @@ function DraftApp({ mp }){
             const hW = g.hScore > g.aScore;
             const aW = g.aScore > g.hScore;
             const etTime = g.gameDate ? new Date(g.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit",timeZoneName:"short"}) : "";
+            const isOpen = selectedGameId===g.eventId && g.eventId;
+            const details = g.eventId ? gameDetails[g.eventId] : null;
+
+            function handleTap(){
+              if(!g.eventId || g.status==="pre") return;
+              if(isOpen){ setSelectedGameId(null); return; }
+              setSelectedGameId(g.eventId);
+              fetchGameDetails(g.eventId);
+            }
+
             return (
-              <div className="card" style={{padding:"12px 14px",marginBottom:8,borderColor:isLive?T.danger+"55":""}}>
+              <div className="card" style={{padding:"12px 14px",marginBottom:8,borderColor:isLive?T.danger+"55":"",cursor:(g.eventId&&g.status!=="pre")?"pointer":"default"}} onClick={handleTap}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                   <span style={{fontSize:10,color:isLive?T.danger:T.textSub,fontWeight:isLive?700:500}}>
                     {isLive ? "● LIVE · "+g.clock : fin ? "Final" : etTime || "TBD"}
                   </span>
-                  {g.roundLabel && <span style={{fontSize:9,color:T.olive,fontWeight:600}}>{g.roundLabel}</span>}
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    {(fin||isLive)&&g.eventId&&<span style={{fontSize:8,color:T.textSub}}>{isOpen?"▲":"▼"}</span>}
+                    {g.roundLabel && <span style={{fontSize:9,color:T.olive,fontWeight:600}}>{g.roundLabel}</span>}
+                  </div>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}>
@@ -1555,6 +1611,23 @@ function DraftApp({ mp }){
                   </div>
                 </div>
                 {g.location && <div style={{textAlign:"center",marginTop:8,fontSize:8.5,color:T.textSub}}>📍 {g.location}</div>}
+
+                {/* Expanded match events */}
+                {isOpen && (
+                  <div style={{marginTop:10,borderTop:"1px solid "+T.navy+"10",paddingTop:8}} onClick={e=>e.stopPropagation()}>
+                    {!details && <div style={{textAlign:"center",fontSize:11,color:T.textSub,padding:8}}>Loading match events…</div>}
+                    {details && details.map((ev,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"4px 0",borderBottom:i<details.length-1?"1px solid "+T.navy+"08":""}}>
+                        <span style={{fontSize:14,flexShrink:0,width:20,textAlign:"center"}}>{ev.icon}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:11,fontWeight:600,color:T.navy}}>{ev.players.length>0?ev.players.join(", "):ev.type}</div>
+                          {ev.team && <div style={{fontSize:9,color:T.textSub}}>{ev.team}</div>}
+                        </div>
+                        {ev.clock && <span style={{fontSize:10,color:T.textSub,fontWeight:600,flexShrink:0}}>{ev.clock}'</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           }
@@ -1706,165 +1779,156 @@ function DraftApp({ mp }){
         })()}
 
         {/* ─ BRACKET ─ */}
+        {/* ─ BRACKET ─ */}
         {tab==="bracket" && (()=>{
-          function getGamesForRound(roundKey){
-            return allGames.filter(g=>g.roundLabel===roundKey).sort((a,b)=>new Date(a.gameDate||0)-new Date(b.gameDate||0));
+          function getGamesForRound(rk){
+            return allGames.filter(g=>g.roundLabel===rk).sort((a,b)=>new Date(a.gameDate||0)-new Date(b.gameDate||0));
           }
-          const r32=getGamesForRound("Round of 32"), r16=getGamesForRound("Round of 16"), qf=getGamesForRound("Quarter-Finals"), sf=getGamesForRound("Semi-Finals"), fin=getGamesForRound("Final"), third=getGamesForRound("3rd Place");
+          const r32=getGamesForRound("Round of 32"), r16=getGamesForRound("Round of 16");
+          const qf=getGamesForRound("Quarter-Finals"), sf=getGamesForRound("Semi-Finals");
+          const fin=getGamesForRound("Final"), third=getGamesForRound("3rd Place");
+          const L={r32:r32.slice(0,8),r16:r16.slice(0,4),qf:qf.slice(0,2),sf:sf.slice(0,1)};
+          const R={r32:r32.slice(8,16),r16:r16.slice(4,8),qf:qf.slice(2,4),sf:sf.slice(1,2)};
 
-          // Split into left/right halves
-          const leftR32=r32.slice(0,8), rightR32=r32.slice(8,16);
-          const leftR16=r16.slice(0,4), rightR16=r16.slice(4,8);
-          const leftQF=qf.slice(0,2), rightQF=qf.slice(2,4);
-          const leftSF=sf.slice(0,1), rightSF=sf.slice(1,2);
+          const MH=62; // match card height
 
-          const MATCH_H = 76;
-          const GAP = 4;
-
-          function MatchCard({game, compact}){
-            const h = compact ? 68 : MATCH_H;
+          function MC({game}){
             if(!game) return (
-              <div style={{height:h,background:T.card,border:"1px solid "+T.navy+"0a",borderRadius:6,display:"flex",flexDirection:"column",justifyContent:"center",padding:"4px 8px",minWidth:compact?130:150}}>
-                <div style={{fontSize:7,color:T.textSub,marginBottom:2}}>TBD</div>
+              <div style={{height:MH,background:T.card,border:"1px solid "+T.navy+"0a",borderRadius:8,padding:"4px 8px",display:"flex",flexDirection:"column",justifyContent:"center",width:"100%"}}>
+                <div style={{fontSize:7,color:T.textSub,marginBottom:1}}>TBD</div>
                 <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}>
-                  <div style={{width:14,height:14,borderRadius:4,background:T.creamDk,fontSize:6,display:"flex",alignItems:"center",justifyContent:"center"}}>?</div>TBD<span style={{marginLeft:"auto"}}>—</span>
+                  <div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>TBD<span style={{marginLeft:"auto"}}>–</span>
                 </div>
-                <div style={{height:1,background:T.navy+"08",margin:"2px 0"}}/>
+                <div style={{height:1,background:T.navy+"08",margin:"3px 0"}}/>
                 <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}>
-                  <div style={{width:14,height:14,borderRadius:4,background:T.creamDk,fontSize:6,display:"flex",alignItems:"center",justifyContent:"center"}}>?</div>TBD<span style={{marginLeft:"auto"}}>—</span>
+                  <div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>TBD<span style={{marginLeft:"auto"}}>–</span>
                 </div>
               </div>
             );
-            const ht=findTeamByName(game.home), at=findTeamByName(game.away);
-            const hO=ht?ownerOf(ht.name):null, aO=at?ownerOf(at.name):null;
-            const isLive=game.status==="in", done=game.completed;
-            const hW=game.hScore>game.aScore, aW=game.aScore>game.hScore;
-            const etTime=game.gameDate?new Date(game.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit",timeZoneName:"short"}):"";
-            const etDate=game.gameDate?new Date(game.gameDate).toLocaleDateString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric"}):"";
+            const ht=findTeamByName(game.home),at=findTeamByName(game.away);
+            const hO=ht?ownerOf(ht.name):null,aO=at?ownerOf(at.name):null;
+            const live=game.status==="in",done=game.completed;
+            const hW=game.hScore>game.aScore,aW=game.aScore>game.hScore;
+            const etD=game.gameDate?new Date(game.gameDate).toLocaleDateString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric"}):"";
+            const etT=game.gameDate?new Date(game.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit"}):"";
             return (
-              <div style={{height:h,background:T.card,border:"1px solid "+(isLive?T.danger+"44":T.navy+"0a"),borderRadius:6,display:"flex",flexDirection:"column",justifyContent:"center",padding:"4px 8px",minWidth:compact?130:150,boxShadow:isLive?"0 0 6px "+T.danger+"18":"none"}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
-                  <span style={{fontSize:7,color:isLive?T.danger:T.textSub,fontWeight:isLive?700:500}}>
-                    {isLive?"● LIVE · "+game.clock:done?"Final":etDate&&etTime?etDate+" · "+etTime:"TBD"}
-                  </span>
-                  {game.roundLabel&&<span style={{fontSize:6,fontWeight:700,color:T.olive,letterSpacing:0.5}}>{game.roundLabel==="Round of 32"?"Rd of 32":game.roundLabel==="Round of 16"?"Rd of 16":game.roundLabel==="Quarter-Finals"?"QF":game.roundLabel==="Semi-Finals"?"SF":game.roundLabel}</span>}
+              <div style={{height:MH,background:T.card,border:"1px solid "+(live?T.danger+"44":T.navy+"0a"),borderRadius:8,padding:"4px 8px",display:"flex",flexDirection:"column",justifyContent:"center",width:"100%",boxShadow:live?"0 0 6px "+T.danger+"18":"none"}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:1}}>
+                  <span style={{fontSize:7,color:live?T.danger:T.textSub,fontWeight:live?700:400}}>{live?"● LIVE "+game.clock:done?"Final":etD+" "+etT}</span>
+                  {game.roundLabel&&<span style={{fontSize:6,color:T.olive,fontWeight:700}}>{game.roundLabel==="Round of 32"?"R32":game.roundLabel==="Round of 16"?"R16":game.roundLabel==="Quarter-Finals"?"QF":game.roundLabel==="Semi-Finals"?"SF":game.roundLabel}</span>}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
-                  {ht?<MiniCard team={ht} size={14}/>:<div style={{width:14,height:14,borderRadius:4,background:T.creamDk,fontSize:6,display:"flex",alignItems:"center",justifyContent:"center"}}>?</div>}
-                  <div style={{flex:1,minWidth:0,overflow:"hidden"}}>
-                    <div style={{fontSize:9,fontWeight:(done&&hW)?700:500,color:(done&&hW)?T.navy:done?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.home||"TBD"}</div>
-                    {hO&&<div style={{fontSize:6,color:PLAYER_COLORS[hO.idx%8],fontWeight:600}}>{hO.name}</div>}
-                  </div>
-                  <span style={{fontSize:12,fontWeight:700,color:(done&&hW)?T.olive:T.navy,minWidth:12,textAlign:"right"}}>{(isLive||done)?game.hScore:"—"}</span>
+                  {ht?<MiniCard team={ht} size={14}/>:<div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>}
+                  <span style={{flex:1,fontSize:9,fontWeight:(done&&hW)?700:400,color:(done&&hW)?T.navy:done?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.home||"TBD"}</span>
+                  {hO&&<span style={{fontSize:6,color:PLAYER_COLORS[hO.idx%8],fontWeight:600,marginRight:2}}>{hO.name}</span>}
+                  <span style={{fontSize:12,fontWeight:700,color:(done&&hW)?T.olive:T.navy,width:14,textAlign:"right"}}>{(live||done)?game.hScore:"–"}</span>
                 </div>
                 <div style={{height:1,background:T.navy+"08",margin:"2px 0"}}/>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
-                  {at?<MiniCard team={at} size={14}/>:<div style={{width:14,height:14,borderRadius:4,background:T.creamDk,fontSize:6,display:"flex",alignItems:"center",justifyContent:"center"}}>?</div>}
-                  <div style={{flex:1,minWidth:0,overflow:"hidden"}}>
-                    <div style={{fontSize:9,fontWeight:(done&&aW)?700:500,color:(done&&aW)?T.navy:done?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.away||"TBD"}</div>
-                    {aO&&<div style={{fontSize:6,color:PLAYER_COLORS[aO.idx%8],fontWeight:600}}>{aO.name}</div>}
-                  </div>
-                  <span style={{fontSize:12,fontWeight:700,color:(done&&aW)?T.olive:T.navy,minWidth:12,textAlign:"right"}}>{(isLive||done)?game.aScore:"—"}</span>
+                  {at?<MiniCard team={at} size={14}/>:<div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>}
+                  <span style={{flex:1,fontSize:9,fontWeight:(done&&aW)?700:400,color:(done&&aW)?T.navy:done?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{game.away||"TBD"}</span>
+                  {aO&&<span style={{fontSize:6,color:PLAYER_COLORS[aO.idx%8],fontWeight:600,marginRight:2}}>{aO.name}</span>}
+                  <span style={{fontSize:12,fontWeight:700,color:(done&&aW)?T.olive:T.navy,width:14,textAlign:"right"}}>{(live||done)?game.aScore:"–"}</span>
                 </div>
-                {game.location&&<div style={{fontSize:6,color:T.textSub,textAlign:"center",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📍 {game.location}</div>}
-              </div>
-            );
-          }
-          function RoundCol({games, slots, label}){
-            const filled = [];
-            for(let i=0;i<slots;i++) filled.push(games[i]||null);
-            return (
-              <div style={{display:"flex",flexDirection:"column",justifyContent:"space-around",gap:GAP,flex:"0 0 auto"}}>
-                {filled.map((g,i)=><MatchCard key={i} game={g}/>)}
+                {game.location&&<div style={{fontSize:5.5,color:T.textSub,textAlign:"center",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📍 {game.location}</div>}
               </div>
             );
           }
 
-          function Connectors({count, dir}){
-            // Draws connector lines between pairs: count = number of OUTPUT lines
-            // Each pair of inputs merges into one output
-            const pairs = [];
-            for(let i=0;i<count;i++) pairs.push(i);
+          // Bracket column: renders N match cards with proper spacing
+          function BCol({games,slots,w}){
+            const filled=[];for(let i=0;i<slots;i++)filled.push(games[i]||null);
             return (
-              <div style={{display:"flex",flexDirection:"column",justifyContent:"space-around",gap:GAP,flex:"0 0 16px"}}>
-                {pairs.map(i=>(
-                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",position:"relative"}}>
-                    <div style={{position:"absolute",top:"25%",bottom:"25%",[dir==="left"?"borderRight":"borderLeft"]:"2px solid "+T.navy+"20",[dir==="left"?"right":"left"]:0,width:0}}/>
-                    <div style={{position:"absolute",top:"25%",[dir==="left"?"borderRight":"borderLeft"]:"2px solid "+T.navy+"20",[dir==="left"?"borderTop":"borderTop"]:"2px solid "+T.navy+"20",width:8,height:0,[dir==="left"?"right":"left"]:0}}/>
-                    <div style={{position:"absolute",bottom:"25%",[dir==="left"?"borderRight":"borderLeft"]:"2px solid "+T.navy+"20",[dir==="left"?"borderBottom":"borderBottom"]:"2px solid "+T.navy+"20",width:8,height:0,[dir==="left"?"right":"left"]:0}}/>
-                    <div style={{position:"absolute",top:"50%",[dir==="left"?"left":"right"]:0,width:8,borderTop:"2px solid "+T.navy+"20",transform:"translateY(-1px)"}}/>
+              <div style={{display:"flex",flexDirection:"column",justifyContent:"space-around",width:w||140,flexShrink:0,gap:0,padding:"0 2px"}}>
+                {filled.map((g,i)=><MC key={i} game={g}/>)}
+              </div>
+            );
+          }
+
+          // Connector lines between rounds
+          function Conn({pairs,dir}){
+            return (
+              <div style={{display:"flex",flexDirection:"column",justifyContent:"space-around",width:14,flexShrink:0}}>
+                {Array.from({length:pairs}).map((_,i)=>(
+                  <div key={i} style={{flex:1,position:"relative"}}>
+                    {/* Vertical bar connecting the pair */}
+                    <div style={{position:"absolute",top:"25%",bottom:"25%",[dir==="r"?"right":"left"]:0,width:0,borderLeft:"1.5px solid "+T.navy+"18"}}/>
+                    {/* Top horizontal tick */}
+                    <div style={{position:"absolute",top:"25%",[dir==="r"?"right":"left"]:0,width:7,borderTop:"1.5px solid "+T.navy+"18"}}/>
+                    {/* Bottom horizontal tick */}
+                    <div style={{position:"absolute",bottom:"25%",[dir==="r"?"right":"left"]:0,width:7,borderTop:"1.5px solid "+T.navy+"18"}}/>
+                    {/* Middle output line */}
+                    <div style={{position:"absolute",top:"calc(50% - 1px)",[dir==="r"?"left":"right"]:0,width:7,borderTop:"1.5px solid "+T.navy+"18"}}/>
                   </div>
                 ))}
               </div>
             );
           }
 
-          const finalGame = fin[0]||null;
-          const champion = finalGame && finalGame.completed ? (finalGame.hScore>finalGame.aScore?finalGame.home:finalGame.away) : null;
-          const champTeam = champion ? findTeamByName(champion) : null;
-          const champOwner = champTeam ? ownerOf(champTeam.name) : null;
+          const finalGame=fin[0]||null;
+          const champ=finalGame&&finalGame.completed?(finalGame.hScore>finalGame.aScore?finalGame.home:finalGame.away):null;
+          const champT=champ?findTeamByName(champ):null;
+          const champO=champT?ownerOf(champT.name):null;
 
           return (
-            <div style={{padding:"14px 0"}}>
-              {/* Round labels */}
-              <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0 10px"}}>
-                <div style={{display:"flex",justifyContent:"center",gap:0,minWidth:1020,marginBottom:8}}>
-                  {["R32","","R16","","QF","","SF","","FINAL","","SF","","QF","","R16","","R32"].map((l,i)=>(
-                    <div key={i} style={{flex:l?"0 0 140":"0 0 16",textAlign:"center",fontSize:9,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:l==="FINAL"?T.olive:T.textSub}}>{l}</div>
+            <div style={{padding:"10px 0"}}>
+              {/* Header labels */}
+              <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0 6px"}}>
+                <div style={{display:"flex",alignItems:"center",minWidth:1060,marginBottom:6}}>
+                  {[{l:"ROUND OF 32",w:140},{l:"",w:14},{l:"ROUND OF 16",w:140},{l:"",w:14},{l:"QUARTERFINALS",w:140},{l:"",w:14},{l:"SEMIFINALS",w:130},{l:"",w:10},{l:"FINAL",w:130},{l:"",w:10},{l:"SEMIFINALS",w:130},{l:"",w:14},{l:"QUARTERFINALS",w:140},{l:"",w:14},{l:"ROUND OF 16",w:140},{l:"",w:14},{l:"ROUND OF 32",w:140}].map((h,i)=>(
+                    <div key={i} style={{width:h.w,flexShrink:0,textAlign:"center",fontSize:7,fontWeight:700,letterSpacing:1,color:h.l==="FINAL"?T.olive:T.textSub,padding:"0 2px"}}>{h.l}</div>
                   ))}
                 </div>
               </div>
+              {/* Bracket body */}
+              <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0 6px 14px"}}>
+                <div style={{display:"flex",alignItems:"stretch",minWidth:1060,minHeight:8*(MH+8)}}>
+                  {/* LEFT HALF */}
+                  <BCol games={L.r32} slots={8}/>
+                  <Conn pairs={4} dir="r"/>
+                  <BCol games={L.r16} slots={4}/>
+                  <Conn pairs={2} dir="r"/>
+                  <BCol games={L.qf} slots={2}/>
+                  <Conn pairs={1} dir="r"/>
+                  <BCol games={L.sf} slots={1} w={130}/>
 
-              {/* Bracket */}
-              <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0 10px 10px"}}>
-                <div style={{display:"flex",alignItems:"stretch",minWidth:1020,minHeight:Math.max(8,leftR32.length)*MATCH_H+100}}>
-                  {/* LEFT HALF: R32 → R16 → QF → SF */}
-                  <RoundCol games={leftR32} slots={8} label="R32"/>
-                  <Connectors count={4} dir="left"/>
-                  <RoundCol games={leftR16} slots={4} label="R16"/>
-                  <Connectors count={2} dir="left"/>
-                  <RoundCol games={leftQF} slots={2} label="QF"/>
-                  <Connectors count={1} dir="left"/>
-                  <RoundCol games={leftSF} slots={1} label="SF"/>
-
-                  {/* CENTER: FINAL + CHAMPION */}
-                  <div style={{flex:"0 0 140",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,padding:"0 8px"}}>
-                    <MatchCard game={finalGame} compact/>
+                  {/* CENTER — Final + Champion */}
+                  <div style={{width:130,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 4px",gap:8}}>
+                    <MC game={finalGame}/>
                     <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:28}}>🏆</div>
-                      {champTeam ? (
+                      <div style={{fontSize:24}}>🏆</div>
+                      {champT?(
                         <>
-                          <MiniCard team={champTeam} size={36}/>
-                          <div style={{fontSize:11,fontWeight:800,color:T.navy,marginTop:4}}>{champion}</div>
-                          {champOwner && <div style={{fontSize:9,fontWeight:700,color:PLAYER_COLORS[champOwner.idx%8]}}>{champOwner.name}</div>}
+                          <MiniCard team={champT} size={32}/>
+                          <div style={{fontSize:10,fontWeight:800,color:T.navy,marginTop:3}}>{champ}</div>
+                          {champO&&<div style={{fontSize:8,fontWeight:700,color:PLAYER_COLORS[champO.idx%8]}}>{champO.name}</div>}
                         </>
-                      ) : (
-                        <div style={{fontSize:9,color:T.textSub,marginTop:4}}>TBD</div>
-                      )}
+                      ):<div style={{fontSize:8,color:T.textSub,marginTop:2}}>TBD</div>}
                     </div>
                   </div>
 
-                  {/* RIGHT HALF: SF → QF → R16 → R32 */}
-                  <RoundCol games={rightSF} slots={1} label="SF"/>
-                  <Connectors count={1} dir="right"/>
-                  <RoundCol games={rightQF} slots={2} label="QF"/>
-                  <Connectors count={2} dir="right"/>
-                  <RoundCol games={rightR16} slots={4} label="R16"/>
-                  <Connectors count={4} dir="right"/>
-                  <RoundCol games={rightR32} slots={8} label="R32"/>
+                  {/* RIGHT HALF */}
+                  <BCol games={R.sf} slots={1} w={130}/>
+                  <Conn pairs={1} dir="l"/>
+                  <BCol games={R.qf} slots={2}/>
+                  <Conn pairs={2} dir="l"/>
+                  <BCol games={R.r16} slots={4}/>
+                  <Conn pairs={4} dir="l"/>
+                  <BCol games={R.r32} slots={8}/>
                 </div>
               </div>
 
               {/* 3rd Place */}
-              {third.length>0 && (
-                <div style={{maxWidth:200,margin:"12px auto 0"}}>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",color:T.textSub,textAlign:"center",marginBottom:6}}>3rd Place</div>
-                  <MatchCard game={third[0]}/>
+              {third.length>0&&(
+                <div style={{maxWidth:180,margin:"8px auto 0"}}>
+                  <div style={{fontSize:7,fontWeight:700,letterSpacing:1,color:T.textSub,textAlign:"center",marginBottom:4}}>3RD PLACE</div>
+                  <MC game={third[0]}/>
                 </div>
               )}
             </div>
           );
         })()}
+
 
         {tab==="history" && (
           <div style={{maxWidth:620,margin:"0 auto",padding:"18px 14px"}}>
