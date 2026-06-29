@@ -1295,6 +1295,20 @@ function DraftApp({ mp }){
   ];
   const allGames  = espnData.games;
 
+  // Points earned per game based on round and result
+  function getGamePts(roundLabel, won, draw){
+    if(!won && !draw) return 0;
+    const r = (roundLabel||"").toLowerCase();
+    if(r.includes("group")) return won ? 3 : draw ? 1 : 0;
+    if(r.includes("32")) return won ? 5 : 0;
+    if(r.includes("16")) return won ? 6 : 0;
+    if(r.includes("quarter")) return won ? 7 : 0;
+    if(r.includes("semi") && !r.includes("final")) return won ? 8 : 0;
+    if(r.includes("final") && !r.includes("semi") && !r.includes("quarter")) return won ? 10 : 0;
+    if(r.includes("3rd") || r.includes("third")) return won ? 8 : 0;
+    return 0;
+  }
+
   // Helper: find team object from a display name (ESPN names may differ from ours)
   function findTeamByName(displayName){
     if(!displayName) return null;
@@ -1475,6 +1489,7 @@ function DraftApp({ mp }){
                                     const draw = !won && !lost && myScore===oppScore;
                                     const resultLabel = won?"W":lost?"L":draw?"D":"–";
                                     const resultColor = won?T.olive:draw?"#F59E0B":T.danger;
+                                    const gamePts = getGamePts(g.roundLabel, won, draw);
                                     return (
                                       <div key={gi} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 6px",borderBottom:gi<teamGames.length-1?"1px solid "+T.navy+"0a":"",fontSize:11}}>
                                         <span style={{fontWeight:800,color:resultColor,width:14,flexShrink:0}}>{resultLabel}</span>
@@ -1482,6 +1497,7 @@ function DraftApp({ mp }){
                                         <span style={{flex:1,color:T.navyLt,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.status==="in"?"vs ":"vs "}{opp}</span>
                                         <span style={{fontWeight:700,color:T.navy}}>{myScore}–{oppScore}</span>
                                         {g.status==="in" && <span style={{fontSize:8,color:T.danger,fontWeight:700}}>LIVE</span>}
+                                        <span style={{fontSize:9,fontWeight:700,color:gamePts>0?T.olive:T.textSub,minWidth:28,textAlign:"right"}}>+{gamePts}</span>
                                         <span style={{fontSize:8,color:T.textSub}}>{g.roundLabel}</span>
                                       </div>
                                     );
@@ -1574,6 +1590,9 @@ function DraftApp({ mp }){
             const etTime = g.gameDate ? new Date(g.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit",timeZoneName:"short"}) : "";
             const isOpen = selectedGameId===g.eventId && g.eventId;
             const details = g.eventId ? gameDetails[g.eventId] : null;
+            const hDraw = !hW && !aW && g.hScore===g.aScore;
+            const homePts = (isLive||fin) ? getGamePts(g.roundLabel, hW, hDraw) : null;
+            const awayPts = (isLive||fin) ? getGamePts(g.roundLabel, aW, hDraw) : null;
 
             function handleTap(){
               if(!g.eventId || g.status==="pre") return;
@@ -1597,7 +1616,7 @@ function DraftApp({ mp }){
                   <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}>
                     <div style={{textAlign:"right",minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:(fin&&hW)?700:500,color:(fin&&hW)?T.navy:fin?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.home||"TBD"}</div>
-                      {hO && <div style={{fontSize:8.5,fontWeight:600,color:PLAYER_COLORS[hO.idx%8],textAlign:"right"}}>{hO.name}</div>}
+                      {hO && <div style={{fontSize:8.5,fontWeight:600,color:PLAYER_COLORS[hO.idx%8],textAlign:"right"}}>{hO.name}{homePts!==null?<span style={{marginLeft:4,fontSize:8,fontWeight:700,color:homePts>0?T.olive:T.textSub}}>+{homePts}</span>:""}</div>}
                     </div>
                     {homeTeam ? <MiniCard team={homeTeam} size={28}/> : <div style={{width:28,height:28,borderRadius:8,background:T.creamDk,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:T.textSub,flexShrink:0}}>?</div>}
                   </div>
@@ -1612,7 +1631,7 @@ function DraftApp({ mp }){
                     {awayTeam ? <MiniCard team={awayTeam} size={28}/> : <div style={{width:28,height:28,borderRadius:8,background:T.creamDk,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:T.textSub,flexShrink:0}}>?</div>}
                     <div style={{minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:(fin&&aW)?700:500,color:(fin&&aW)?T.navy:fin?T.textSub:T.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.away||"TBD"}</div>
-                      {aO && <div style={{fontSize:8.5,fontWeight:600,color:PLAYER_COLORS[aO.idx%8]}}>{aO.name}</div>}
+                      {aO && <div style={{fontSize:8.5,fontWeight:600,color:PLAYER_COLORS[aO.idx%8]}}>{aO.name}{awayPts!==null?<span style={{marginLeft:4,fontSize:8,fontWeight:700,color:awayPts>0?T.olive:T.textSub}}>+{awayPts}</span>:""}</div>}
                     </div>
                   </div>
                 </div>
