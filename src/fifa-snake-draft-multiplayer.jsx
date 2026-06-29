@@ -212,6 +212,9 @@ function useESPN(){
         const home = (cs[0].team && cs[0].team.displayName) || "";
         const away = (cs[1].team && cs[1].team.displayName) || "";
         const hS = parseInt(cs[0].score)||0, aS = parseInt(cs[1].score)||0;
+        // ESPN marks the winner regardless of how the game was won (regulation, ET, PKs)
+        const homeWinner = !!(cs[0].winner);
+        const awayWinner = !!(cs[1].winner);
         const st   = (ev.status && ev.status.type && ev.status.type.state) || "pre";
         const done = !!(ev.status && ev.status.type && ev.status.type.completed);
         const clock = (ev.status && ev.status.displayClock) || "";
@@ -232,7 +235,7 @@ function useESPN(){
         else if(rl.includes("semi") && !rl.includes("final")) roundLabel = "Semi-Finals";
         else if(rl.includes("final") && !rl.includes("semi") && !rl.includes("quarter")) roundLabel = "Final";
         else if(rl.includes("third") || rl.includes("3rd")) roundLabel = "3rd Place";
-        games.push({home, away, hScore:hS, aScore:aS, status:st, completed:done, clock, roundLabel, gameDate, gameName, location, eventId});
+        games.push({home, away, hScore:hS, aScore:aS, status:st, completed:done, clock, roundLabel, gameDate, gameName, location, eventId, homeWinner, awayWinner});
         if(st === "in") live.push({home, away, hScore:hS, aScore:aS, clock, roundLabel, gameDate, location});
         // Process both completed AND live games for standings (live scores treated as current result)
         if(!done && st !== "in") continue;
@@ -254,8 +257,9 @@ function useESPN(){
           else if(aS > hS){ tr[nAway]["g"+Math.min(ag,3)]="W"; tr[nHome]["g"+Math.min(hg,3)]="L"; }
           else { tr[nHome]["g"+Math.min(hg,3)]="D"; tr[nAway]["g"+Math.min(ag,3)]="D"; }
         } else {
-          if(hS > aS){ tr[nHome][rk]="W"; tr[nAway][rk]="L"; }
-          else if(aS > hS){ tr[nAway][rk]="W"; tr[nHome][rk]="L"; }
+          // Knockout rounds: use ESPN's winner flag for ET/PK results (no draws allowed)
+          if(homeWinner || hS > aS){ tr[nHome][rk]="W"; tr[nAway][rk]="L"; }
+          else if(awayWinner || aS > hS){ tr[nAway][rk]="W"; tr[nHome][rk]="L"; }
         }
       }
       setD({games, live, teamResults:tr, lastFetch:new Date(), loading:false, source:games.length?"espn":"static"});
@@ -1464,9 +1468,12 @@ function DraftApp({ mp }){
                                     const oppTeam = findTeamByName(opp);
                                     const myScore = isHome ? g.hScore : g.aScore;
                                     const oppScore = isHome ? g.aScore : g.hScore;
-                                    const won = myScore>oppScore;
-                                    const draw = myScore===oppScore;
-                                    const resultLabel = won?"W":draw?"D":"L";
+                                    const myWinner = isHome ? g.homeWinner : g.awayWinner;
+                                    const oppWinner = isHome ? g.awayWinner : g.homeWinner;
+                                    const won = myWinner || myScore>oppScore;
+                                    const lost = oppWinner || oppScore>myScore;
+                                    const draw = !won && !lost && myScore===oppScore;
+                                    const resultLabel = won?"W":lost?"L":draw?"D":"–";
                                     const resultColor = won?T.olive:draw?"#F59E0B":T.danger;
                                     return (
                                       <div key={gi} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 6px",borderBottom:gi<teamGames.length-1?"1px solid "+T.navy+"0a":"",fontSize:11}}>
@@ -1562,8 +1569,8 @@ function DraftApp({ mp }){
             const aO = awayTeam ? ownerOf(awayTeam.name) : null;
             const isLive = g.status==="in";
             const fin = g.completed;
-            const hW = g.hScore > g.aScore;
-            const aW = g.aScore > g.hScore;
+            const hW = g.homeWinner || g.hScore > g.aScore;
+            const aW = g.awayWinner || g.aScore > g.hScore;
             const etTime = g.gameDate ? new Date(g.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit",timeZoneName:"short"}) : "";
             const isOpen = selectedGameId===g.eventId && g.eventId;
             const details = g.eventId ? gameDetails[g.eventId] : null;
@@ -1780,119 +1787,47 @@ function DraftApp({ mp }){
         {/* ─ BRACKET ─ */}
         {/* ─ BRACKET ─ */}
         {tab==="bracket" && (()=>{
-          // Get games without date-sorting to preserve ESPN's bracket order
+          // Get games without sorting to preserve ESPN bracket order
           function getRound(rk){ return allGames.filter(g=>g.roundLabel===rk); }
           const r32g=getRound("Round of 32"), r16g=getRound("Round of 16");
           const qfg=getRound("Quarter-Finals"), sfg=getRound("Semi-Finals");
           const fing=getRound("Final"), thirdg=getRound("3rd Place");
 
-          // FIFA WC 2026 bracket seeding
-          // KEY RULE: Winner and Runner-up from the SAME group go to OPPOSITE halves
-          // This guarantees same-group teams can only meet in the Final
-          const R32_SEEDS = {
-            left:[
-              {home:"Winner A",away:"Runner-up C"},
-              {home:"Winner B",away:"Runner-up D"},
-              {home:"Winner E",away:"Runner-up G"},
-              {home:"Winner F",away:"Runner-up H"},
-              {home:"Winner I",away:"Runner-up K"},
-              {home:"Winner J",away:"Runner-up L"},
-              {home:"3rd Place",away:"3rd Place"},
-              {home:"3rd Place",away:"3rd Place"},
-            ],
-            right:[
-              {home:"Winner C",away:"Runner-up A"},
-              {home:"Winner D",away:"Runner-up B"},
-              {home:"Winner G",away:"Runner-up E"},
-              {home:"Winner H",away:"Runner-up F"},
-              {home:"Winner K",away:"Runner-up I"},
-              {home:"Winner L",away:"Runner-up J"},
-              {home:"3rd Place",away:"3rd Place"},
-              {home:"3rd Place",away:"3rd Place"},
-            ],
+          // Use ESPN's data as-is — ESPN determines the correct bracket paths
+          // Split into halves: ESPN lists games in bracket order (top-half first, bottom-half second)
+          const half = Math.ceil(r32g.length / 2);
+          const L = {
+            r32: r32g.slice(0, half),
+            r16: r16g.slice(0, Math.ceil(r16g.length/2)),
+            qf: qfg.slice(0, Math.ceil(qfg.length/2)),
+            sf: sfg.slice(0, Math.ceil(sfg.length/2)),
           };
-
-          // Match ESPN knockout games to the correct bracket slot by checking team groups
-          function findGroupOf(teamName){
-            const t = findTeamByName(teamName);
-            return t ? t.wcGroup : null;
-          }
-
-          function assignGamesToSlots(espnGames, seeds){
-            const slots = new Array(seeds.length).fill(null);
-            const usedGames = new Set();
-
-            // Try to match each ESPN game to a seed slot based on team groups
-            for(let s=0; s<seeds.length; s++){
-              const seed = seeds[s];
-              // Extract expected groups from seed label (e.g., "Winner A" → "A")
-              const homeGroupMatch = seed.home.match(/[A-L]$/);
-              const awayGroupMatch = seed.away.match(/[A-L]$/);
-              if(!homeGroupMatch || !awayGroupMatch) continue;
-              const expectHomeGrp = homeGroupMatch[0];
-              const expectAwayGrp = awayGroupMatch[0];
-
-              for(let g=0; g<espnGames.length; g++){
-                if(usedGames.has(g)) continue;
-                const game = espnGames[g];
-                const hGrp = findGroupOf(game.home);
-                const aGrp = findGroupOf(game.away);
-                // Match if groups align (either direction)
-                if((hGrp===expectHomeGrp && aGrp===expectAwayGrp) ||
-                   (hGrp===expectAwayGrp && aGrp===expectHomeGrp)){
-                  slots[s] = game;
-                  usedGames.add(g);
-                  break;
-                }
-              }
-            }
-            // Fill remaining slots with unmatched games
-            for(let s=0; s<slots.length; s++){
-              if(slots[s]) continue;
-              for(let g=0; g<espnGames.length; g++){
-                if(usedGames.has(g)){continue;}
-                slots[s] = espnGames[g];
-                usedGames.add(g);
-                break;
-              }
-            }
-            return slots;
-          }
-
-          const leftR32 = assignGamesToSlots(r32g, R32_SEEDS.left);
-          const rightR32 = assignGamesToSlots(r32g, R32_SEEDS.right);
-          const L={r32:leftR32, r16:r16g.slice(0,4), qf:qfg.slice(0,2), sf:sfg.slice(0,1)};
-          const R={r32:rightR32, r16:r16g.slice(4,8), qf:qfg.slice(2,4), sf:sfg.slice(1,2)};
+          const R = {
+            r32: r32g.slice(half),
+            r16: r16g.slice(Math.ceil(r16g.length/2)),
+            qf: qfg.slice(Math.ceil(qfg.length/2)),
+            sf: sfg.slice(Math.ceil(sfg.length/2)),
+          };
 
           const MH=72;
 
-          function MC({game,seed}){
-            if(!game && seed) return (
-              <div style={{height:MH,background:T.card,border:"1px solid "+T.navy+"0a",borderRadius:8,padding:"4px 8px",display:"flex",flexDirection:"column",justifyContent:"center",width:"100%"}}>
-                <div style={{fontSize:7,color:T.textSub,marginBottom:2}}>TBD</div>
-                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}>
-                  <div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>
-                  <span style={{flex:1}}>{seed.home}</span><span>–</span>
-                </div>
-                <div style={{height:1,background:T.navy+"08",margin:"2px 0"}}/>
-                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}>
-                  <div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>
-                  <span style={{flex:1}}>{seed.away}</span><span>–</span>
-                </div>
-              </div>
-            );
+          function MC({game}){
             if(!game) return (
               <div style={{height:MH,background:T.card,border:"1px solid "+T.navy+"0a",borderRadius:8,padding:"4px 8px",display:"flex",flexDirection:"column",justifyContent:"center",width:"100%"}}>
                 <div style={{fontSize:7,color:T.textSub,marginBottom:2}}>TBD</div>
-                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}><div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>TBD<span style={{marginLeft:"auto"}}>–</span></div>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}>
+                  <div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>TBD<span style={{marginLeft:"auto"}}>–</span>
+                </div>
                 <div style={{height:1,background:T.navy+"08",margin:"2px 0"}}/>
-                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}><div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>TBD<span style={{marginLeft:"auto"}}>–</span></div>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:T.textSub}}>
+                  <div style={{width:16,height:12,borderRadius:2,background:T.creamDk}}/>TBD<span style={{marginLeft:"auto"}}>–</span>
+                </div>
               </div>
             );
             const ht=findTeamByName(game.home),at=findTeamByName(game.away);
             const hO=ht?ownerOf(ht.name):null,aO=at?ownerOf(at.name):null;
             const live=game.status==="in",done=game.completed;
-            const hW=game.hScore>game.aScore,aW=game.aScore>game.hScore;
+            const hW=game.homeWinner||game.hScore>game.aScore,aW=game.awayWinner||game.aScore>game.hScore;
             const etD=game.gameDate?new Date(game.gameDate).toLocaleDateString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric"}):"";
             const etT=game.gameDate?new Date(game.gameDate).toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit"}):"";
             return (
@@ -1919,11 +1854,11 @@ function DraftApp({ mp }){
             );
           }
 
-          function BCol({games,slots,seeds,w}){
-            const filled=[];for(let i=0;i<slots;i++)filled.push({game:games[i]||null,seed:seeds?seeds[i]:null});
+          function BCol({games,slots,w}){
+            const filled=[];for(let i=0;i<slots;i++)filled.push(games[i]||null);
             return (
               <div style={{display:"flex",flexDirection:"column",justifyContent:"space-around",width:w||140,flexShrink:0,gap:0,padding:"0 2px"}}>
-                {filled.map((f,i)=><MC key={i} game={f.game} seed={f.seed}/>)}
+                {filled.map((g,i)=><MC key={i} game={g}/>)}
               </div>
             );
           }
@@ -1959,7 +1894,7 @@ function DraftApp({ mp }){
               </div>
               <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0 6px 14px"}}>
                 <div style={{display:"flex",alignItems:"stretch",minWidth:1060,minHeight:8*(MH+8)}}>
-                  <BCol games={L.r32} slots={8} seeds={R32_SEEDS.left}/>
+                  <BCol games={L.r32} slots={8}/>
                   <Conn pairs={4} dir="r"/>
                   <BCol games={L.r16} slots={4}/>
                   <Conn pairs={2} dir="r"/>
@@ -1983,7 +1918,7 @@ function DraftApp({ mp }){
                   <Conn pairs={2} dir="l"/>
                   <BCol games={R.r16} slots={4}/>
                   <Conn pairs={4} dir="l"/>
-                  <BCol games={R.r32} slots={8} seeds={R32_SEEDS.right}/>
+                  <BCol games={R.r32} slots={8}/>
                 </div>
               </div>
               {thirdg.length>0&&(
