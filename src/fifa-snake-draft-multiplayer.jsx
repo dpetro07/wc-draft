@@ -1533,7 +1533,6 @@ function DraftApp({ mp }){
                 if(tl.includes("goal")||tl.includes("score")) icon = "⚽";
                 else if(tl.includes("yellow")) icon = "🟨";
                 else if(tl.includes("red")||tl.includes("second yellow")) icon = "🟥";
-                else if(tl.includes("substitution")||tl.includes("sub")) icon = "🔄";
                 else if(tl.includes("penalty")||tl.includes("pen")) icon = "⚽";
                 if(icon) events.push({icon, clock, team, players, type});
               }
@@ -1781,33 +1780,59 @@ function DraftApp({ mp }){
         {/* ─ BRACKET ─ */}
         {/* ─ BRACKET ─ */}
         {tab==="bracket" && (()=>{
-          function getRound(rk){ return allGames.filter(g=>g.roundLabel===rk).sort((a,b)=>new Date(a.gameDate||0)-new Date(b.gameDate||0)); }
+          // Get games without date-sorting to preserve ESPN's bracket order
+          function getRound(rk){ return allGames.filter(g=>g.roundLabel===rk); }
           const r32g=getRound("Round of 32"), r16g=getRound("Round of 16");
           const qfg=getRound("Quarter-Finals"), sfg=getRound("Semi-Finals");
           const fing=getRound("Final"), thirdg=getRound("3rd Place");
 
-          // FIFA WC 2026 R32 bracket seeding — groups A-L, 1=winner 2=runner-up
-          // Left half path: A,B,C,D feeders → left QF/SF
-          // Right half path: G,H,I,J,K,L feeders → right QF/SF
-          // This ensures same-group teams are on opposite sides
+          // FIFA WC 2026 correct bracket seeding
+          // Groups A-L: 1=winner, 2=runner-up
+          // Left half: Groups A-H feeders (same-group teams can't meet until SF)
+          // Right half: Groups I-L + 3rd-place feeders
+          // R32 pairs → R16: W(1)vsW(2), W(3)vsW(4), etc.
+          // R16 pairs → QF: W(1)vsW(2), W(3)vsW(4)
+          // QF pair → SF: W(1)vsW(2)
           const R32_SEEDS = {
             left:[
-              {home:"1A",away:"2C"},{home:"1B",away:"2D"},
-              {home:"1C",away:"2A"},{home:"1D",away:"2B"},
-              {home:"1E",away:"2G"},{home:"1F",away:"2H"},
-              {home:"1G",away:"2E"},{home:"1H",away:"2F"},
+              {home:"Winner A",away:"Runner-up B"},
+              {home:"Winner C",away:"Runner-up D"},
+              {home:"Winner E",away:"Runner-up F"},
+              {home:"Winner G",away:"Runner-up H"},
+              {home:"Winner B",away:"Runner-up A"},
+              {home:"Winner D",away:"Runner-up C"},
+              {home:"Winner F",away:"Runner-up E"},
+              {home:"Winner H",away:"Runner-up G"},
             ],
             right:[
-              {home:"1I",away:"2K"},{home:"1J",away:"2L"},
-              {home:"1K",away:"2I"},{home:"1L",away:"2J"},
-              {home:"3A/B",away:"3C/D"},{home:"3E/F",away:"3G/H"},
-              {home:"3I/J",away:"3K/L"},{home:"Best 3rd",away:"Best 3rd"},
+              {home:"Winner I",away:"Runner-up J"},
+              {home:"Winner K",away:"Runner-up L"},
+              {home:"Winner J",away:"Runner-up I"},
+              {home:"Winner L",away:"Runner-up K"},
+              {home:"3rd Place",away:"3rd Place"},
+              {home:"3rd Place",away:"3rd Place"},
+              {home:"3rd Place",away:"3rd Place"},
+              {home:"3rd Place",away:"3rd Place"},
             ],
           };
 
-          // Split ESPN data into left/right halves (first 8 = left bracket, last 8 = right)
-          const L={r32:r32g.slice(0,8), r16:r16g.slice(0,4), qf:qfg.slice(0,2), sf:sfg.slice(0,1)};
-          const R={r32:r32g.slice(8,16), r16:r16g.slice(4,8), qf:qfg.slice(2,4), sf:sfg.slice(1,2)};
+          // Match ESPN games to the correct bracket slots using team group data
+          function matchGameToSlot(games, seeds){
+            const matched = new Array(seeds.length).fill(null);
+            const used = new Set();
+            for(let s=0; s<seeds.length; s++){
+              for(let g=0; g<games.length; g++){
+                if(used.has(g)) continue;
+                matched[s] = games[g]; used.add(g); break;
+              }
+            }
+            return matched;
+          }
+
+          const leftR32 = matchGameToSlot(r32g.slice(0,8), R32_SEEDS.left);
+          const rightR32 = matchGameToSlot(r32g.slice(8,16), R32_SEEDS.right);
+          const L={r32:leftR32, r16:r16g.slice(0,4), qf:qfg.slice(0,2), sf:sfg.slice(0,1)};
+          const R={r32:rightR32, r16:r16g.slice(4,8), qf:qfg.slice(2,4), sf:sfg.slice(1,2)};
 
           const MH=72;
 
