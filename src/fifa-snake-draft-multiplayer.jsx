@@ -1786,51 +1786,81 @@ function DraftApp({ mp }){
           const qfg=getRound("Quarter-Finals"), sfg=getRound("Semi-Finals");
           const fing=getRound("Final"), thirdg=getRound("3rd Place");
 
-          // FIFA WC 2026 correct bracket seeding
-          // Groups A-L: 1=winner, 2=runner-up
-          // Left half: Groups A-H feeders (same-group teams can't meet until SF)
-          // Right half: Groups I-L + 3rd-place feeders
-          // R32 pairs → R16: W(1)vsW(2), W(3)vsW(4), etc.
-          // R16 pairs → QF: W(1)vsW(2), W(3)vsW(4)
-          // QF pair → SF: W(1)vsW(2)
+          // FIFA WC 2026 bracket seeding
+          // KEY RULE: Winner and Runner-up from the SAME group go to OPPOSITE halves
+          // This guarantees same-group teams can only meet in the Final
           const R32_SEEDS = {
             left:[
-              {home:"Winner A",away:"Runner-up B"},
-              {home:"Winner C",away:"Runner-up D"},
-              {home:"Winner E",away:"Runner-up F"},
-              {home:"Winner G",away:"Runner-up H"},
-              {home:"Winner B",away:"Runner-up A"},
-              {home:"Winner D",away:"Runner-up C"},
-              {home:"Winner F",away:"Runner-up E"},
-              {home:"Winner H",away:"Runner-up G"},
+              {home:"Winner A",away:"Runner-up C"},
+              {home:"Winner B",away:"Runner-up D"},
+              {home:"Winner E",away:"Runner-up G"},
+              {home:"Winner F",away:"Runner-up H"},
+              {home:"Winner I",away:"Runner-up K"},
+              {home:"Winner J",away:"Runner-up L"},
+              {home:"3rd Place",away:"3rd Place"},
+              {home:"3rd Place",away:"3rd Place"},
             ],
             right:[
-              {home:"Winner I",away:"Runner-up J"},
-              {home:"Winner K",away:"Runner-up L"},
-              {home:"Winner J",away:"Runner-up I"},
-              {home:"Winner L",away:"Runner-up K"},
-              {home:"3rd Place",away:"3rd Place"},
-              {home:"3rd Place",away:"3rd Place"},
+              {home:"Winner C",away:"Runner-up A"},
+              {home:"Winner D",away:"Runner-up B"},
+              {home:"Winner G",away:"Runner-up E"},
+              {home:"Winner H",away:"Runner-up F"},
+              {home:"Winner K",away:"Runner-up I"},
+              {home:"Winner L",away:"Runner-up J"},
               {home:"3rd Place",away:"3rd Place"},
               {home:"3rd Place",away:"3rd Place"},
             ],
           };
 
-          // Match ESPN games to the correct bracket slots using team group data
-          function matchGameToSlot(games, seeds){
-            const matched = new Array(seeds.length).fill(null);
-            const used = new Set();
-            for(let s=0; s<seeds.length; s++){
-              for(let g=0; g<games.length; g++){
-                if(used.has(g)) continue;
-                matched[s] = games[g]; used.add(g); break;
-              }
-            }
-            return matched;
+          // Match ESPN knockout games to the correct bracket slot by checking team groups
+          function findGroupOf(teamName){
+            const t = findTeamByName(teamName);
+            return t ? t.wcGroup : null;
           }
 
-          const leftR32 = matchGameToSlot(r32g.slice(0,8), R32_SEEDS.left);
-          const rightR32 = matchGameToSlot(r32g.slice(8,16), R32_SEEDS.right);
+          function assignGamesToSlots(espnGames, seeds){
+            const slots = new Array(seeds.length).fill(null);
+            const usedGames = new Set();
+
+            // Try to match each ESPN game to a seed slot based on team groups
+            for(let s=0; s<seeds.length; s++){
+              const seed = seeds[s];
+              // Extract expected groups from seed label (e.g., "Winner A" → "A")
+              const homeGroupMatch = seed.home.match(/[A-L]$/);
+              const awayGroupMatch = seed.away.match(/[A-L]$/);
+              if(!homeGroupMatch || !awayGroupMatch) continue;
+              const expectHomeGrp = homeGroupMatch[0];
+              const expectAwayGrp = awayGroupMatch[0];
+
+              for(let g=0; g<espnGames.length; g++){
+                if(usedGames.has(g)) continue;
+                const game = espnGames[g];
+                const hGrp = findGroupOf(game.home);
+                const aGrp = findGroupOf(game.away);
+                // Match if groups align (either direction)
+                if((hGrp===expectHomeGrp && aGrp===expectAwayGrp) ||
+                   (hGrp===expectAwayGrp && aGrp===expectHomeGrp)){
+                  slots[s] = game;
+                  usedGames.add(g);
+                  break;
+                }
+              }
+            }
+            // Fill remaining slots with unmatched games
+            for(let s=0; s<slots.length; s++){
+              if(slots[s]) continue;
+              for(let g=0; g<espnGames.length; g++){
+                if(usedGames.has(g)){continue;}
+                slots[s] = espnGames[g];
+                usedGames.add(g);
+                break;
+              }
+            }
+            return slots;
+          }
+
+          const leftR32 = assignGamesToSlots(r32g, R32_SEEDS.left);
+          const rightR32 = assignGamesToSlots(r32g, R32_SEEDS.right);
           const L={r32:leftR32, r16:r16g.slice(0,4), qf:qfg.slice(0,2), sf:sfg.slice(0,1)};
           const R={r32:rightR32, r16:r16g.slice(4,8), qf:qfg.slice(2,4), sf:sfg.slice(1,2)};
 
